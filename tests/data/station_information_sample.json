@@ -1,0 +1,218 @@
+{
+ "lastUpdatedOther": 1794069856,
+ "ttl": 3600,
+ "data": {
+  "stations": [
+   {
+    "station_id": 213688169,
+    "stationCode": "16107",
+    "name": "Benjamin Godard - Victor Hugo",
+    "lat": 48.865983,
+    "lon": 2.275725,
+    "capacity": 35,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 19179944124,
+    "stationCode": "40001",
+    "name": "Hôpital Mondor",
+    "lat": 48.798922410229,
+    "lon": 2.4537451531298,
+    "capacity": 28,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 18795078746,
+    "stationCode": "32304",
+    "name": "Charcot - Benfleet",
+    "lat": 48.878370277021,
+    "lon": 2.440523876268,
+    "capacity": 28,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 36255,
+    "stationCode": "9020",
+    "name": "Toudouze - Clauzel",
+    "lat": 48.87929591733507,
+    "lon": 2.3373600840568547,
+    "capacity": 21,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 251039991,
+    "stationCode": "14111",
+    "name": "Cassini - Denfert-Rochereau",
+    "lat": 48.837525839067,
+    "lon": 2.3360354080796,
+    "capacity": 25,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 85002689,
+    "stationCode": "14014",
+    "name": "Jourdan - Stade Charléty",
+    "lat": 48.819428333369,
+    "lon": 2.3433353751898,
+    "capacity": 60,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 2515829865,
+    "stationCode": "32017",
+    "name": "Basilique",
+    "lat": 48.93626891059109,
+    "lon": 2.3588666820200914,
+    "capacity": 22,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 516709288,
+    "stationCode": "11104",
+    "name": "Charonne - Robert et Sonia Delaunay",
+    "lat": 48.855907555969,
+    "lon": 2.3925706744194,
+    "capacity": 20,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 37874517,
+    "stationCode": "6003",
+    "name": "Saint-Sulpice",
+    "lat": 48.85165383178419,
+    "lon": 2.3308077827095985,
+    "capacity": 21,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 210565680,
+    "stationCode": "7002",
+    "name": "Vaneau - Sèvres",
+    "lat": 48.848563233059,
+    "lon": 2.3204218259346,
+    "capacity": 35,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 210403080,
+    "stationCode": "5110",
+    "name": "Lacépède - Monge",
+    "lat": 48.84389286531899,
+    "lon": 2.3519663885235786,
+    "capacity": 23,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 210561800,
+    "stationCode": "6108",
+    "name": "Saint-Romain - Cherche-Midi",
+    "lat": 48.84708159081946,
+    "lon": 2.321374788880348,
+    "capacity": 17,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 209063434,
+    "stationCode": "33006",
+    "name": "André Karman - République",
+    "lat": 48.91039875761846,
+    "lon": 2.3851355910301213,
+    "capacity": 31,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 94555589,
+    "stationCode": "42016",
+    "name": "Pierre et Marie Curie - Maurice Thorez",
+    "lat": 48.81580226360801,
+    "lon": 2.376804985105991,
+    "capacity": 27,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 501862076,
+    "stationCode": "25006",
+    "name": "Place Nelson Mandela",
+    "lat": 48.862453313908,
+    "lon": 2.1961666225454,
+    "capacity": 22,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 653208733,
+    "stationCode": "31024",
+    "name": "Romainville - Vaillant-Couturier",
+    "lat": 48.86785,
+    "lon": 2.446748,
+    "capacity": 38,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 323616530,
+    "stationCode": "1001",
+    "name": "Quai de l'Horloge - Pont Neuf",
+    "lat": 48.857058739111,
+    "lon": 2.3417982839439,
+    "capacity": 17,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 88140066,
+    "stationCode": "8017",
+    "name": "Rocher - Laborde",
+    "lat": 48.875902407127,
+    "lon": 2.3226163163781,
+    "capacity": 0,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 21584689525,
+    "stationCode": "18501",
+    "name": "Station Tour de France",
+    "lat": 48.883291,
+    "lon": 2.334151,
+    "capacity": 200,
+    "station_opening_hours": null
+   },
+   {
+    "station_id": 129032910,
+    "stationCode": "10014",
+    "name": "Marseille - Beaurepaire",
+    "lat": 48.871624306962985,
+    "lon": 2.3639265082738348,
+    "capacity": 55,
+    "rental_methods": [
+     "CREDITCARD"
+    ],
+    "station_opening_hours": null
+   }
+  ]
+ }
+}
