@@ -31,3 +31,7 @@ crash.log
 .vscode/
 .idea/
 /data/
+
+# Terraform saved plans
+tfplan
+*.tfplan

@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+subscription_id = "00000000-0000-0000-0000-000000000000" # az account show --query id -o tsv
+location        = "francecentral"
+
+# Team members other than the person running terraform apply.
+collaborators = ["prenom.nom@supinfo.com"]
+
+budget_amount         = 50
+budget_contact_emails = ["prenom.nom@supinfo.com"]
