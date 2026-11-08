@@ -1,207 +1,259 @@
 # Avancement du projet et passation
 
-> Dernière mise à jour : 7 novembre 2026, par Saer.
+> Dernière mise à jour : 8 novembre 2026, par Saer.
 > Rendu : **mercredi 18 novembre 2026, 23:59**.
 
-Ce document résume ce qui a été fait étape par étape, comment on travaille sur le repo, et ce que chacun doit faire jusqu'au rendu.
+Ce document résume tout ce qui a été fait, ce qui est déjà en place sur Azure, et ce qu'il reste à faire jusqu'au rendu.
 
 ---
 
-## 1. Répartition du travail
-
-On coupe le pipeline en deux moitiés. Chacun avance sans attendre l'autre.
+## 1. Répartition
 
 | | Saer | Ibrahima |
 |---|---|---|
-| Étapes | 0 à 3 : setup, source, infra, ingestion | 4 à 6 : traitement, dashboard, bonus |
-| Partie du barème | Ingestion ADF (6 pts), Terraform | Synapse (6 pts), Power BI (4 pts), bonus Fabric |
+| Étapes | **0 à 2 : faites** ✅ (setup, source, infra Azure) | **3 à 6** : ingestion ADF, traitement Synapse, Power BI, bonus |
+| Barème | Terraform (bonus), qualité du repo | Ingestion (6 pts), Synapse (6 pts), Power BI (4 pts) |
 | Ensemble | Slides, vidéo de secours, répétitions, rendu | idem |
 
-Le jury peut interroger n'importe lequel de nous deux sur n'importe quelle partie (Q&A = 6 pts). On relit donc les PR l'un de l'autre, même après le merge.
+Le jury peut interroger n'importe lequel de nous deux sur n'importe quelle partie (Q&A = 6 pts). Chacun doit donc comprendre tout le projet, y compris ce document.
 
 ---
 
 ## 2. Ce qui a été fait
 
-### Étape 0 : structure du repo (PR #1, mergée)
+### Étape 0 : structure du repo (PR #1)
 
-- Arborescence prévue par le cahier des charges :
+| Dossier | Contenu |
+|---|---|
+| `infra/` | Terraform : **fait** |
+| `adf/` | Pipelines Data Factory (intégration Git) : à faire |
+| `synapse/notebooks/`, `synapse/sql/` | Notebooks PySpark, vues SQL serverless : à faire |
+| `src/data_platform_project/` | Code Python réutilisable |
+| `tests/` | Tests pytest + `tests/data/` (données d'exemple) |
+| `powerbi/` | `.pbix` et captures : à faire |
+| `docs/` | Documentation |
 
-  | Dossier | Contenu |
-  |---|---|
-  | `infra/` | Terraform |
-  | `adf/` | Pipelines Data Factory (intégration Git) |
-  | `synapse/notebooks/`, `synapse/sql/` | Notebooks PySpark, vues SQL serverless |
-  | `src/data_platform_project/` | Code Python réutilisable |
-  | `tests/` | Tests pytest (+ `tests/data/` : données d'exemple) |
-  | `powerbi/` | `.pbix` et captures |
-  | `docs/` | Documentation (ce fichier) |
+- Le package Python a été déplacé dans `src/data_platform_project/`, comme l'attend le build `uv_build`.
+- Le `.gitignore` exclut `.env`, l'état Terraform (`*.tfstate`, `.terraform/`, `tfplan`), `*.tfvars` et `/data/`.
 
-- **Package Python corrigé.** Le code était dans `src/__init__.py`. Le build `uv_build` attend `src/data_platform_project/`, donc on l'a déplacé. `uv run data-platform-project` fonctionne maintenant.
-- **`.gitignore`** : il exclut `.env`, les fichiers d'état Terraform (`*.tfstate`, `.terraform/`), `*.tfvars` (seul `*.tfvars.example` est versionné) et `/data/` (instantanés téléchargés en local).
-- **README** : squelette, à compléter au fil du projet.
+### Étape 1 : source de données et client Python (PR #2)
 
-### Étape 1 : source de données et client Python (PR #2, mergée)
-
-**Source choisie : Vélib' Métropole (Paris Open Data, format GBFS).**
-
-Pourquoi ce choix :
-- l'API est publique, **sans clé** et sans limite de requêtes gênante ;
-- les données sont mises à jour **chaque minute**, ce qui est idéal pour une démo en temps réel ;
-- chaque station a des **coordonnées GPS**, ce qui permet une carte dans Power BI ;
-- il y a des **anomalies naturelles** : stations vides, pleines ou hors service.
-
-Deux flux, à joindre sur `station_id` :
-
-| Flux | URL | Contenu | Fréquence |
-|---|---|---|---|
-| `station_status` | `.../Velib_Metropole/station_status.json` | vélos et bornes disponibles | ~1 min |
-| `station_information` | `.../Velib_Metropole/station_information.json` | nom, GPS, capacité | quasi statique |
+**Source : Vélib' Métropole (Paris Open Data, format GBFS).** Elle est publique, sans clé, mise à jour chaque minute, avec des coordonnées GPS et des anomalies naturelles (stations vides, pleines ou hors service).
 
 URL de base : `https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole`
 
-Le client Python est dans [`src/data_platform_project/velib.py`](../src/data_platform_project/velib.py) :
+| Flux | Fichier | Contenu | Fréquence |
+|---|---|---|---|
+| `station_status` | `station_status.json` | vélos et bornes disponibles par station | ~1 min |
+| `station_information` | `station_information.json` | nom, lat/lon, capacité | quasi statique |
+
+Les deux flux se joignent sur `station_id` (~1 520 stations).
+
+Client Python dans [`src/data_platform_project/velib.py`](../src/data_platform_project/velib.py) :
 
 | Fonction | Rôle |
 |---|---|
-| `fetch_feed(feed)` | télécharge un flux, avec retry automatique sur les erreurs réseau et les codes 429/5xx |
-| `validate_payload(feed, payload)` | rejette les réponses vides, mal formées ou incomplètes (exigence EF1.5) |
-| `bronze_path(feed, ts)` | donne le chemin bronze partitionné, par exemple `velib/station_status/2026/11/07/16/05.json` (UTC) |
-| `save_snapshot(out_dir)` | télécharge les deux flux et les écrit tels quels, c'est l'équivalent local d'ADF |
+| `fetch_feed(feed)` | télécharge un flux, avec retry automatique (erreurs réseau, 429, 5xx) |
+| `validate_payload(feed, payload)` | rejette les réponses vides, mal formées ou incomplètes |
+| `bronze_path(feed, ts)` | chemin bronze UTC, par exemple `velib/station_status/2026/11/07/16/05.json` |
+| `save_snapshot(out_dir)` | télécharge les deux flux en local, c'est l'équivalent d'ADF (plan B, tests) |
 
-Tests : [`tests/test_velib.py`](../tests/test_velib.py), 15 tests qui n'appellent jamais la vraie API.
+Il y a 15 tests dans [`tests/test_velib.py`](../tests/test_velib.py). Des données d'exemple réelles (20 stations, dont 3 vides, 3 pleines et 2 hors service) sont dans `tests/data/station_status_sample.json` et `tests/data/station_information_sample.json`.
 
-**Données d'exemple pour le traitement**, extraites de vraies réponses :
-- `tests/data/station_status_sample.json`
-- `tests/data/station_information_sample.json`
+### Étape 2 : infrastructure Azure en Terraform (PR #4) ✅ déployée
 
-Elles contiennent 20 stations, dont 3 vides (`num_bikes_available = 0`), 3 pleines (`num_docks_available = 0`) et 2 hors service (`is_installed = 0` ou `is_renting = 0`).
+Tout est dans [`infra/`](../infra/), avec un guide dans [`infra/README.md`](../infra/README.md).
 
-### Préparation Azure (côté Saer)
+- Souscription : **Azure for Students** de Saer, tenant **SUPINFO**, avec une limite de dépense active : aucun risque d'être débité.
+- Région : **`francecentral`**. La souscription n'autorise que `austriaeast`, `germanywestcentral`, `belgiumcentral`, `francecentral` et `denmarkeast`, et francecentral est la plus proche de Paris avec tous les services nécessaires.
 
-- Souscription : **Azure for Students**, tenant **SUPINFO**.
-- Régions autorisées par la souscription : `austriaeast`, `germanywestcentral`, `belgiumcentral`, `francecentral`, `denmarkeast`.
-- **Région retenue : `francecentral`.** C'est la plus proche de Paris, et tous les services nécessaires y sont disponibles (ADLS Gen2, Key Vault, Data Factory, Synapse + Spark pool).
-- Azure CLI installé et connecté. Terraform est la prochaine étape.
+**Ressources créées** (groupe de ressources `rg-velib-platform`) :
 
----
+| Ressource | Nom | Rôle dans le pipeline |
+|---|---|---|
+| Data Factory | `adf-velib-mwzyy4` | **Ingestion** : appelle l'API toutes les X min, écrit dans bronze, lance Synapse |
+| Data Lake ADLS Gen2 | `stvelibmwzyy4` | **Stockage** : containers `bronze`, `silver`, `gold` (+ `synapse`, interne) |
+| Key Vault | `kv-velib-mwzyy4` | **Secrets** : vide pour l'instant (Vélib' n'a pas de clé) |
+| Workspace Synapse | `synw-velib-mwzyy4` | **Traitement** : Synapse Studio, SQL serverless |
+| Spark pool | `sparkvelib` | **Calcul PySpark** : 3 nœuds Small (12 vCores), Spark 3.4, auto-pause 15 min |
+| Budget | `budget-velib` | Alertes par mail à 50, 80 et 100 % de 50 $/mois, envoyées à nous deux |
 
-## 3. Comment on travaille sur le repo
+En plus :
+- `rg-velib-tfstate` contient l'**état Terraform** (stockage `sttfstate5fd9bf4a`).
+- `synapseworkspace-managedrg-...` est créé automatiquement par Azure : **ne pas y toucher**.
 
-### Lancer le projet en local
+**Points d'accès utiles :**
 
-Prérequis : Python 3.13 et [uv](https://docs.astral.sh/uv/).
+| | |
+|---|---|
+| Data Lake (Spark) | `abfss://<bronze\|silver\|gold>@stvelibmwzyy4.dfs.core.windows.net/` |
+| Data Lake (ADF) | `https://stvelibmwzyy4.dfs.core.windows.net/` |
+| Serveur SQL serverless (Power BI) | `synw-velib-mwzyy4-ondemand.sql.azuresynapse.net` |
 
-```bash
-uv sync                                   # dépendances (pandas, requests, pyspark, pytest, ruff, black)
-uv run pytest                             # tous les tests
-uv run pytest tests/test_velib.py::test_bronze_path_is_utc_partitioned   # un seul test
-uv run ruff check . && uv run black .     # lint + formatage (à faire avant chaque commit)
-uv run python -m data_platform_project.velib   # télécharger un vrai instantané dans data/bronze/
-```
-
-PySpark a besoin de Java en local (`java -version`). S'il manque : installe Java 17 (Temurin, par exemple).
-
-### Workflow git
-
-1. Une branche par étape, créée depuis `main` à jour :
-   ```bash
-   git checkout main && git pull
-   git checkout -b feat/synapse-processing
-   ```
-2. Des commits réguliers et explicites, avec un préfixe : `feat:`, `fix:`, `test:`, `docs:`, `chore:`. Exemple : `feat(synapse): add bronze to silver notebook`.
-3. Push puis PR :
-   ```bash
-   git push -u origin feat/synapse-processing
-   gh pr create --fill --base main
-   ```
-4. **Chacun merge ses propres PR** pour ne pas bloquer l'autre. L'autre relit après coup.
-5. Jamais de secret dans le code : clés et mots de passe vont dans Key Vault.
+**Sécurité** (à savoir pour le Q&A) :
+- **Aucune clé, aucun mot de passe.** Les clés du compte de stockage sont désactivées, et Synapse fonctionne en authentification Entra ID uniquement : il n'y a pas d'admin SQL avec mot de passe.
+- ADF et Synapse ont chacun une **identité managée** avec les droits *Storage Blob Data Contributor* (Data Lake) et *Key Vault Secrets User*.
+- Le pare-feu Synapse est ouvert à toutes les IP, pour qu'on puisse travailler depuis n'importe où. L'accès reste protégé par Entra ID.
 
 ---
 
-## 4. Ce qu'il reste à faire
+## 3. Ton accès Azure (Ibrahima)
 
-### Saer : étapes 2 et 3
+Tes droits ont été donnés par Terraform :
 
-| # | Étape | Branche | Ce que ça débloque pour Ibrahima |
-|---|---|---|---|
-| 2 | **Terraform** : state distant, groupe de ressources, ADLS Gen2 (containers `bronze`/`silver`/`gold`), Key Vault, Data Factory, Synapse workspace + Spark pool (auto-pause), droits d'accès | `feat/infra-terraform` | le workspace Synapse et le Data Lake existent |
-| 3 | **ADF** : Copy des deux flux vers `bronze/velib/<flux>/yyyy/MM/dd/HH/mm.json`, déclencheur **toutes les 5 min**, retry, validation, alerte en cas d'échec, intégration Git dans `adf/`. Le pipeline déclenche ensuite le notebook Synapse. | `feat/adf-ingestion` | des fichiers arrivent en continu dans bronze |
+| Rôle | Sur | Permet |
+|---|---|---|
+| Contributor | `rg-velib-platform` | gérer toutes les ressources du projet |
+| Storage Blob Data Contributor | `stvelibmwzyy4` | lire et écrire dans le Data Lake |
+| Key Vault Administrator | `kv-velib-mwzyy4` | gérer les secrets |
+| Synapse Administrator | `synw-velib-mwzyy4` | Synapse Studio, notebooks, droits Synapse |
 
-Dès que l'étape 2 est faite, Saer **ajoute Ibrahima avec le rôle Contributor** sur le groupe de ressources, pour qu'il accède à Synapse. Saer lui envoie aussi le nom du compte de stockage et du workspace.
+**Pour te connecter :**
+1. Va sur https://portal.azure.com avec `ibrahima.ndaw@supinfo.com`.
+2. Si tu ne vois pas `rg-velib-platform`, change de répertoire : ⚙️ en haut à droite, *Directories + subscriptions*, puis **SUPINFO**. La souscription « Azure for Students » de Saer apparaît à côté de la tienne.
+3. Pour **Synapse Studio** : ouvre `synw-velib-mwzyy4`, puis *Open Synapse Studio*.
+4. Pour **ADF Studio** : ouvre `adf-velib-mwzyy4`, puis *Launch Studio*.
 
-### Ibrahima : étapes 4, 5 et 6
+**Le crédit est partagé** (celui de Saer, environ 100 $) :
+- Le **Spark pool** coûte environ 1,5 à 2 $ par heure quand il tourne. Arrête ta session quand tu as fini (bouton *Stop session*).
+- **Désactive le déclencheur ADF** quand on ne travaille pas (la nuit, par exemple).
+- Pendant le développement, lance le traitement toutes les 10 à 15 min, **pas toutes les minutes**.
 
-#### À faire tout de suite (sans Azure)
+---
 
-- [ ] Récupérer `main` à jour, puis vérifier `uv sync` et `uv run pytest`.
+## 4. Ce que tu dois faire (Ibrahima)
+
+### Tout de suite (30 min)
+
+- [ ] `git checkout main && git pull`, puis `uv sync` et `uv run pytest` (15 tests doivent passer).
+- [ ] **Tester le quota Spark** : dans Synapse Studio, *Develop*, **+**, *Notebook*, *Attach to* `sparkvelib`, puis lance `print("ok")`. Le premier démarrage prend 2 à 3 min. En cas d'erreur de quota, demande une augmentation : portail, *Help + support*, *Create a support request*, *Service and subscription limits (quotas)*, *Azure Synapse Analytics*.
 - [ ] Demander l'**essai Microsoft Fabric / Power BI** avec ton mail SUPINFO sur https://app.fabric.microsoft.com.
-- [ ] Vérifier que tu as **Power BI Desktop** (Windows uniquement : Saer est sur Mac).
+- [ ] Vérifier que tu as **Power BI Desktop** (Windows uniquement).
 
-#### Étape 4 : traitement Synapse (6 pts), branche `feat/synapse-processing`
+### Étape 3 : ingestion ADF (6 pts), branche `feat/adf-ingestion`
 
-**Commence en local avec les données d'exemple.** Tu n'as pas besoin d'attendre Azure.
+Tout se fait dans **ADF Studio** (`adf-velib-mwzyy4`).
 
-1. Écris les transformations comme des **fonctions PySpark pures** (DataFrame en entrée, DataFrame en sortie) dans `src/data_platform_project/transform.py`, avec leurs tests dans `tests/test_transform.py`. Les notebooks Synapse ne feront qu'appeler ces fonctions.
+1. **Brancher ADF sur GitHub, en premier**, pour que chaque modification soit commitée : *Manage*, *Git configuration*, *Configure*, puis :
+   - type GitHub, compte `lambert-19`, repo `my_data_platform` ;
+   - collaboration branch : `main`, **root folder : `/adf`** ;
+   - ensuite, travaille sur une branche `feat/adf-ingestion`, créée depuis le menu des branches en haut, et ouvre une PR vers `main` à la fin.
+
+2. **Linked services** (*Manage*, *Linked services*) :
+   - **HTTP**, URL de base `https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/`, authentification *Anonymous* ;
+   - **Azure Data Lake Storage Gen2**, URL `https://stvelibmwzyy4.dfs.core.windows.net/`, authentification **System-assigned managed identity**. Les droits sont déjà donnés, et les clés du compte sont désactivées : ne choisis pas « Account key » ;
+   - **Azure Key Vault**, `kv-velib-mwzyy4`, en identité managée. Pas indispensable pour Vélib', mais exigé par le cahier des charges.
+
+3. **Datasets** :
+   - source : JSON sur le linked service HTTP, avec un paramètre `feed` et l'URL relative `@{dataset().feed}.json` ;
+   - destination : JSON sur ADLS Gen2, container `bronze`, avec un paramètre de chemin.
+
+4. **Pipeline `pl_ingest_velib`** :
+   - un paramètre `feeds` = `["station_status", "station_information"]` ;
+   - un **ForEach** sur `feeds`, contenant une activité **Copy** ;
+   - le chemin de destination doit suivre le même découpage que `bronze_path()` en Python :
+     ```
+     @concat('velib/', item(), '/', formatDateTime(pipeline().TriggerTime, 'yyyy/MM/dd/HH'), '/', formatDateTime(pipeline().TriggerTime, 'mm'), '.json')
+     ```
+   - sur la Copy : **Retry = 3**, **Retry interval = 30 s**, **Timeout = 5 min**.
+
+5. **Validation** (exigence EF1.5) : avant ou après la Copy, une activité **Lookup** ou **Web** lit la réponse, puis une **If Condition** vérifie que `data.stations` n'est pas vide. Si la réponse est vide, l'activité **Fail** arrête le pipeline avec un message clair. Les règles à reproduire sont dans `validate_payload()` de `velib.py`.
+
+6. **Gestion des erreurs et alerte** :
+   - un chemin *On failure* qui journalise l'erreur, par exemple avec une activité *Set variable* ;
+   - une **alerte mail** : *Monitor*, *Alerts & metrics*, *New alert rule*, métrique *Failed pipeline runs* supérieure à 0, avec notification par mail à nous deux.
+
+7. **Déclencheur** : un *Schedule trigger* **toutes les 5 min**. Il faut pouvoir le justifier : la source change chaque minute, mais 5 min est un bon compromis entre fraîcheur et coût, et on reste sous les 20 min de latence exigées.
+
+8. **Lancer Synapse après l'ingestion** (exigence EF1.6), une fois l'étape 4 prête :
+   - ajoute une activité **Synapse notebook** à la fin du pipeline, sur un linked service *Azure Synapse Analytics* (workspace `synw-velib-mwzyy4`) en identité managée ;
+   - ADF a besoin d'un **rôle Synapse** pour lancer un notebook. Tu es Synapse Administrator, donc tu peux le lui donner : Synapse Studio, *Manage*, *Access control*, *Add*, rôle *Synapse Administrator* (le plus simple), membre `adf-velib-mwzyy4` ;
+   - pour limiter les coûts, ne lance le notebook qu'**une fois sur deux ou trois**, ou crée un second déclencheur toutes les 15 min.
+
+9. **Captures pour le README et la démo** : exécutions réussies dans *Monitor*, fichiers dans `bronze/` (*Storage browser* du compte `stvelibmwzyy4`).
+
+### Étape 4 : traitement Synapse (6 pts), branche `feat/synapse-processing`
+
+**Commence en local avec `tests/data/`.** Tu n'as pas besoin d'attendre qu'ADF tourne.
+
+1. Écris les transformations comme des **fonctions PySpark pures** dans `src/data_platform_project/transform.py`, avec leurs tests dans `tests/test_transform.py`. En local, PySpark a besoin de Java 17 (`java -version`).
 
 2. **Bronze → silver** :
-   - exploser `data.stations` (une ligne par station et par instantané) ;
+   - exploser `data.stations` : une ligne par station et par instantané ;
    - convertir `last_reported` (epoch en secondes) en timestamp UTC ;
-   - extraire les vélos mécaniques et électriques de `num_bikes_available_types`. Attention, c'est une liste de dictionnaires : `[{"mechanical": 10}, {"ebike": 2}]` ;
+   - extraire vélos mécaniques et électriques de `num_bikes_available_types`. C'est une liste de dictionnaires : `[{"mechanical": 10}, {"ebike": 2}]` ;
    - ignorer les doublons en camelCase (`numBikesAvailable`, `numDocksAvailable`) ;
-   - joindre avec `station_information` sur `station_id` pour avoir nom, GPS et capacité ;
-   - ajouter un horodatage d'ingestion (tiré du chemin du fichier ou de l'heure de traitement) ;
-   - dédoublonner sur (`station_id`, `last_reported`), car une station qui n'a pas changé renvoie le même `last_reported` ;
+   - joindre `station_information` sur `station_id` pour avoir nom, lat/lon et capacité ;
+   - ajouter l'horodatage d'ingestion (tiré du chemin bronze) ;
+   - dédoublonner sur (`station_id`, `last_reported`) ;
    - gérer les valeurs manquantes.
 
-3. **Silver → gold** : les KPI. Idées :
-   - taux d'occupation = vélos / capacité, par station et global ;
+3. **Silver → gold** (KPI) :
+   - taux d'occupation = vélos / capacité (par station et global) ;
    - nombre de stations vides, pleines et hors service ;
-   - moyenne glissante des vélos disponibles (par exemple sur 30 min ou 1 h) ;
-   - répartition par zone. Les 2 premiers chiffres de `stationCode` semblent correspondre à l'arrondissement pour Paris intra-muros, **à vérifier** ;
-   - anomalies : station vide ou pleine depuis plus de X minutes, chute brutale du nombre de vélos, station hors service.
+   - moyenne glissante des vélos disponibles (30 min ou 1 h) ;
+   - répartition par zone : les 2 premiers chiffres de `stationCode` semblent donner l'arrondissement pour Paris intra-muros, **à vérifier** ;
+   - anomalies : station vide ou pleine depuis plus de X min, chute brutale, station hors service.
 
-4. Format : **Delta** (ou Parquet) partitionné par date, dans `silver/` et `gold/`.
+4. Format **Delta** (ou Parquet), partitionné par date, dans `silver/` et `gold/`.
 
-5. **Traitement incrémental** : ne traiter que les nouveaux fichiers bronze, par exemple avec un watermark sur la date d'ingestion ou Spark Structured Streaming avec checkpoint. Le traitement doit pouvoir être relancé **sans créer de doublons** (exigence ENF4).
+5. **Incrémental et rejouable sans doublons** (exigences EF2.3 et ENF4) : watermark sur la date d'ingestion, ou Structured Streaming avec checkpoint.
 
-6. Ajoute des **logs** : nombre de lignes en entrée et en sortie, durée, latence.
+6. **Logs** : lignes en entrée et en sortie, durée, latence de bout en bout.
 
-7. Une fois Azure prêt, crée les notebooks dans `synapse/notebooks/` (ou via l'intégration Git de Synapse) et lis les données en `abfss://<container>@<compte>.dfs.core.windows.net/...`.
+7. Dans Synapse Studio, active aussi l'**intégration Git** (*Manage*, *Git configuration*, même repo, **root folder `/synapse`**), puis crée les notebooks. Ils lisent et écrivent en `abfss://...@stvelibmwzyy4.dfs.core.windows.net/`.
 
-> 💰 **Coût** : le Spark pool coûte cher et met 2 à 3 min à démarrer. Garde l'auto-pause à 15 min. Pour le traitement, vise toutes les 10 à 15 min, pas chaque minute. On reste sous les 20 min de latence exigées.
+### Étape 5 : SQL serverless + Power BI (4 pts), branche `feat/powerbi-dashboard`
 
-#### Étape 5 : SQL serverless + Power BI (4 pts), branche `feat/powerbi-dashboard`
-
-1. Écris les **vues SQL serverless** sur la couche gold (`OPENROWSET` sur Delta/Parquet) dans `synapse/sql/`.
-2. Dans Power BI Desktop, connecte-toi au point de terminaison serverless de Synapse en **DirectQuery**.
+1. Vues SQL serverless sur `gold` (`OPENROWSET`, format Delta ou Parquet) dans une base dédiée, par exemple `velib`. Scripts dans `synapse/sql/`.
+2. Power BI Desktop : *Get data*, *Azure Synapse Analytics SQL*, serveur `synw-velib-mwzyy4-ondemand.sql.azuresynapse.net`, mode **DirectQuery**, connexion avec ton compte SUPINFO.
 3. Visuels attendus :
-   - cartes KPI : vélos disponibles, taux d'occupation, stations vides ou pleines ;
+   - cartes KPI ;
    - courbe dans le temps ;
    - **carte des stations** (lat/lon) ;
-   - filtres : date, zone, type de vélo ;
-   - mise en évidence des anomalies ;
+   - filtres (date, zone, type de vélo) ;
+   - anomalies mises en évidence ;
    - encart « insights clés ».
-4. **Actualisation automatique de page**. Sur une capacité partagée (licence Pro), l'intervalle minimum est de 30 min. Pour descendre à quelques minutes, publie le rapport dans un **workspace Fabric** (essai). L'essai Fabric est donc important.
-5. Publie le rapport sur le Power BI Service, puis mets le `.pbix` et des captures dans `powerbi/`.
+4. **Actualisation automatique de page** : avec une licence Pro, le minimum est de 30 min. Pour quelques minutes, publie dans un **workspace Fabric** (essai).
+5. Publie le rapport, puis mets le `.pbix` et des captures dans `powerbi/`.
 
-#### Étape 6 : bonus et doc, branche `feat/infra-fabric`
+### Étape 6 : bonus Fabric + doc, branche `feat/infra-fabric`
 
-- Workspace Fabric en Terraform (provider `microsoft/fabric`) dans `infra/`, rattaché à la capacité d'essai. Si ce n'est pas possible, documenter la limite.
+- Workspace Fabric en Terraform (provider `microsoft/fabric`), dans un **dossier séparé `infra/fabric/`** avec sa propre clé de state (`key = "fabric.tfstate"` dans un `backend.hcl` dédié). Comme ça, tu ne touches pas à l'infra principale. Lancer `terraform apply` sur `infra/` demande le rôle Owner, que seul Saer a.
+- Pour lire et écrire l'état Terraform, Saer doit te donner l'accès au stockage du state (voir section 6).
 - Compléter le README : schéma d'architecture, procédure de déploiement, captures.
 
 ---
 
-## 5. Calendrier
+## 5. Comment on travaille sur le repo
 
-| Dates | Saer | Ibrahima |
+```bash
+uv sync                                    # dépendances
+uv run pytest                              # tests
+uv run ruff check . && uv run black .      # lint + formatage avant chaque commit
+uv run python -m data_platform_project.velib   # télécharger un vrai instantané dans data/bronze/
+```
+
+Workflow git :
+1. Une branche par étape depuis `main` à jour (`git checkout main && git pull && git checkout -b feat/...`).
+2. Des commits réguliers avec un préfixe : `feat:`, `fix:`, `test:`, `docs:`, `chore:`.
+3. `git push -u origin <branche>`, puis `gh pr create --fill --base main`.
+4. Chacun merge ses propres PR. L'autre relit après coup, ce qui sert aussi de préparation au Q&A.
+5. Jamais de secret dans le code.
+
+Pour ADF et Synapse, l'intégration Git commite directement depuis l'interface web sur ta branche. Tu n'as plus qu'à ouvrir la PR.
+
+---
+
+## 6. Calendrier
+
+| Dates | Ibrahima | Saer |
 |---|---|---|
-| 7–9 nov | Étape 2 : Terraform | Étape 4 en local avec les données d'exemple |
-| 9–11 nov | Étape 3 : ingestion ADF | Étape 4 : brancher sur Synapse |
-| 12–14 nov | Alertes, monitoring, README | Étape 5 : vues SQL + Power BI |
-| 14–15 nov | Aide sur le bonus si besoin | Étape 6 : bonus Fabric |
-| 16–17 nov | **Ensemble** : slides, vidéo de secours, 2 répétitions chronométrées | |
-| 18 nov | **Ensemble** : vérifier qu'aucun secret n'est commité, zip, rendu. Après la note : `terraform destroy` | |
+| 8–9 nov | Accès Azure, test du quota Spark, **étape 3 : ADF** | Accès au state Terraform pour Ibrahima, relecture |
+| 9–12 nov | **Étape 4 : Synapse** (commencée en local en parallèle) | Relecture, préparation des slides |
+| 12–14 nov | **Étape 5 : SQL + Power BI** | Relecture, slides |
+| 14–15 nov | **Étape 6 : bonus Fabric + README** | Relecture |
+| 16–17 nov | **Ensemble** : slides, vidéo de secours de la démo, 2 répétitions chronométrées | |
+| 18 nov | **Ensemble** : vérifier qu'aucun secret n'est commité, zip, rendu. Après la note, Saer lance `terraform destroy` et supprime `rg-velib-tfstate` | |
 
-Le cahier des charges complet est dans [`CAHIER_DES_CHARGES.md`](../CAHIER_DES_CHARGES.md), et la liste détaillée des tâches et des questions probables du jury dans [`TODO.md`](../TODO.md).
+Références : [`CAHIER_DES_CHARGES.md`](../CAHIER_DES_CHARGES.md) pour les exigences et [`TODO.md`](../TODO.md) pour les tâches détaillées et les questions probables du jury.
