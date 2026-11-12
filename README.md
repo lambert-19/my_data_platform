@@ -6,13 +6,58 @@ Plateforme de données quasi temps réel sur Microsoft Azure (module 5CLOU).
 
 ## Architecture
 
-```
-API source → Azure Data Factory → ADLS Gen2 (bronze → silver → gold)
-           → Azure Synapse (PySpark + SQL serverless) → Power BI (DirectQuery)
-Transverse : Key Vault · identités managées · Terraform
+```mermaid
+flowchart LR
+    src["🚲 API Vélib' Métropole<br/>GBFS · mise à jour ~1 min<br/>station_status · station_information"]
+
+    subgraph azure["Azure · rg-velib-platform · francecentral"]
+        direction LR
+
+        subgraph ingest["Ingestion"]
+            adf["Azure Data Factory<br/>pl_ingest_velib<br/>trigger toutes les 5 min<br/>ForEach + Copy · retry 3×"]
+            check{"Réponse<br/>valide ?"}
+            alert["❌ Fail + alerte mail"]
+        end
+
+        subgraph lake["ADLS Gen2 · stvelib…"]
+            bronze[("bronze<br/>JSON brut<br/>velib/feed/yyyy/MM/dd/HH/mm.json")]
+            silver[("silver<br/>Delta · 1 ligne par<br/>station et instantané")]
+            gold[("gold<br/>Delta · KPI<br/>occupation, anomalies")]
+        end
+
+        subgraph synapse["Azure Synapse Analytics"]
+            spark["Spark pool sparkvelib<br/>notebooks PySpark"]
+            sql["SQL serverless<br/>vues sur gold"]
+        end
+
+        kv["🔐 Key Vault"]
+    end
+
+    pbi["📊 Power BI<br/>DirectQuery<br/>actualisation auto"]
+    tf["🛠️ Terraform<br/>azurerm + microsoft/fabric"]
+
+    src -- "HTTP GET" --> adf
+    adf --> check
+    check -- "oui" --> bronze
+    check -- "non" --> alert
+    adf -. "lance le notebook" .-> spark
+    bronze -- "nettoyage, jointure,<br/>dédoublonnage" --> spark
+    spark --> silver
+    silver -- "agrégations" --> spark
+    spark --> gold
+    gold --> sql
+    sql --> pbi
+
+    kv -. "identités managées" .- adf
+    kv -. "identités managées" .- spark
+    tf -. "déploie" .-> azure
 ```
 
-_Schéma détaillé : à venir dans `docs/`._
+- **Ingestion :** ADF interroge l'API Vélib' toutes les 5 min, valide la réponse et écrit le JSON brut dans `bronze`.
+- **Traitement :** les notebooks PySpark de Synapse nettoient les données (`silver`) puis calculent les KPI (`gold`), de façon incrémentale.
+- **Exposition :** des vues SQL serverless publient la couche `gold`, lue par Power BI en DirectQuery.
+- **Sécurité :** aucune clé ni mot de passe ; ADF et Synapse accèdent au Data Lake et au Key Vault par identité managée.
+- **Infrastructure :** toutes les ressources Azure sont déployées par Terraform ([infra/](infra/)).
 
 ## Organisation du repo
 
