@@ -19,8 +19,8 @@
 
 ## Phase 0 – Cadrage & setup (S1)
 
-- [ ] Choisir la source de données (mise à jour fréquente pour simuler le temps réel). Pistes du sujet : Paris Open Data, Alpha Vantage / Yahoo Finance, OpenWeatherMap
-- [ ] Obtenir la clé API, tester les appels (Postman / curl), noter les limites de requêtes
+- [x] Choisir la source de données → **Vélib' Métropole** (Paris Open Data, GBFS, mise à jour ~1 min)
+- [x] Tester les appels (pas de clé API nécessaire) → client [`velib.py`](src/data_platform_project/velib.py) + données d'exemple dans `tests/data/`
 - [ ] Créer le repo GitHub, protéger `main`, définir la convention de commits (`feat:`, `fix:`, `docs:`…)
 - [ ] Mettre en place l'arborescence du repo :
   ```
@@ -45,7 +45,7 @@
 - [ ] Backend distant pour le state (Storage Account + container)
 - [ ] Resource Group
 - [ ] Storage Account ADLS Gen2 + containers `bronze`, `silver`, `gold`
-- [ ] Key Vault (clé API, secrets de connexion)
+- [ ] Key Vault (secrets de connexion ; pas de clé pour Vélib')
 - [ ] Azure Data Factory avec identité managée
 - [ ] Synapse Workspace + Spark pool (auto-pause activé) + SQL serverless
 - [ ] Role assignments (Storage Blob Data Contributor, accès Key Vault pour ADF et Synapse)
@@ -56,10 +56,10 @@
 
 ## Phase 2 – Ingestion avec Azure Data Factory (6 pts, S2)
 
-- [ ] Linked services : source REST/HTTP, ADLS Gen2, Key Vault
-- [ ] Copy activity → JSON brut dans `bronze/<source>/yyyy/MM/dd/HH/mm.json`
+- [ ] Linked services : HTTP Vélib' (anonyme), ADLS Gen2, Key Vault
+- [ ] Copy activity (ForEach sur `station_status` et `station_information`) → JSON brut dans `bronze/velib/<flux>/yyyy/MM/dd/HH/mm.json`
 - [ ] Paramétrer le pipeline (endpoint, chemin horodaté, liste de villes/actifs…)
-- [ ] Trigger planifié (Schedule ou Tumbling Window) — le sujet cite « chaque minute ou chaque heure » ; viser 1 à 15 min selon la source et justifier l'intervalle
+- [ ] Trigger planifié toutes les 5 min (Vélib' change chaque minute ; compromis fraîcheur / coût, à justifier à l'oral)
 - [ ] Gestion des erreurs :
   - [ ] Retry policy + timeout sur les activités
   - [ ] Chemin « on failure » (log d'erreur, alerte mail / Logic App)
@@ -103,7 +103,7 @@
   1. Titre & équipe
   2. **Introduction & objectifs** (2 pts)
   3. Architecture
-  4. Source de données & justification
+  4. Source : Vélib' Métropole & justification
   5. Ingestion
   6. Traitement
   7. Dashboard

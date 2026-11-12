@@ -1,6 +1,6 @@
 # My Data Platform : Scale
 
-Plateforme de données quasi temps réel sur Microsoft Azure (module 5CLOU).
+Plateforme de données quasi temps réel sur Microsoft Azure (module 5CLOU), alimentée par la disponibilité des stations **Vélib' Métropole** (Paris Open Data, format GBFS, mise à jour chaque minute).
 
 **Équipe :** Ibrahima Ndaw · Saer Diene
 

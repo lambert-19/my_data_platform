@@ -14,7 +14,7 @@
 
 Les organisations s'appuient de plus en plus sur des plateformes de données pour collecter, gérer et analyser leurs données en temps réel. Une plateforme de données réunit des outils d'ingestion, de traitement, de stockage et de visualisation pour permettre des décisions rapides et fondées sur les données.
 
-Dans le cadre du module 5CLOU (« Building a unified data platform for real-time event analysis »), l'équipe doit concevoir et déployer une plateforme de données sur Microsoft Azure / Microsoft Fabric capable d'ingérer, de traiter et de visualiser des données en quasi temps réel, à partir d'une source de données ouverte. Python est utilisé pour les transformations, le traitement et l'automatisation.
+Dans le cadre du module 5CLOU (« Building a unified data platform for real-time event analysis »), l'équipe doit concevoir et déployer une plateforme de données sur Microsoft Azure / Microsoft Fabric capable d'ingérer, de traiter et de visualiser des données en quasi temps réel, à partir d'une source de données ouverte : la disponibilité des stations **Vélib' Métropole** à Paris. Python est utilisé pour les transformations, le traitement et l'automatisation.
 
 Le projet est évalué lors d'une démonstration live de 15 minutes suivie de 5 minutes de questions. Les crédits Azure sont obtenus via le GitHub Student Developer Pack (Azure for Students).
 
@@ -45,18 +45,23 @@ Le projet est évalué lors d'une démonstration live de 15 minutes suivie de 5 
 
 | Critère | Valeur |
 |---|---|
-| Source retenue | _à compléter (pistes du sujet : Paris Open Data, Alpha Vantage / Yahoo Finance, OpenWeatherMap)_ |
-| Type d'accès | API REST (JSON) |
-| Authentification | Clé API stockée dans Azure Key Vault |
-| Fréquence de mise à jour de la source | _à compléter_ |
-| Limite de requêtes | _à compléter_ |
-| Justification du choix | Données évoluant fréquemment, pertinentes pour une démonstration temps réel |
+| Source retenue | **Vélib' Métropole** (Paris Open Data), format standard GBFS |
+| URL de base | `https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole` |
+| Type d'accès | API HTTP publique (JSON) |
+| Authentification | Aucune (pas de clé API) |
+| Flux utilisés | `station_status.json` (vélos et bornes disponibles, ~1 min) · `station_information.json` (nom, lat/lon, capacité, quasi statique) |
+| Volume | ~1 520 stations, jointes sur `station_id` |
+| Fréquence de mise à jour de la source | Environ chaque minute |
+| Limite de requêtes | Non documentée : usage raisonnable, 2 appels toutes les 5 min |
+| Justification du choix | Données publiques, sans clé, mises à jour chaque minute, géolocalisées, avec des anomalies naturelles (stations vides, pleines ou hors service) qui rendent la démonstration temps réel parlante |
+
+Le client Python de la source est dans [`src/data_platform_project/velib.py`](src/data_platform_project/velib.py) (téléchargement avec retry, validation des réponses, chemin bronze).
 
 ## 5. Architecture cible
 
 ```
 ┌──────────────┐    ┌───────────────────┐    ┌─────────────────────────────┐
-│  API source  │───▶│ Azure Data Factory│───▶│ ADLS Gen2                   │
+│  API Vélib'  │───▶│ Azure Data Factory│───▶│ ADLS Gen2                   │
 └──────────────┘    │ (trigger planifié)│    │  bronze → silver → gold     │
                     └─────────┬─────────┘    └──────────────┬──────────────┘
                               │ déclenche                    │
@@ -82,7 +87,7 @@ Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · G
 |---|---|
 | Resource Group | Regroupe toutes les ressources du projet |
 | ADLS Gen2 | Stockage des données brutes et transformées |
-| Azure Key Vault | Stockage sécurisé de la clé API et des secrets |
+| Azure Key Vault | Stockage sécurisé des secrets (l'API Vélib' n'a pas de clé, prévu pour d'autres sources) |
 | Azure Data Factory | Orchestration et ingestion planifiée |
 | Azure Synapse Analytics | Traitement PySpark et exposition SQL |
 | Power BI (Microsoft Fabric) | Visualisation et restitution, dans un workspace Fabric |
@@ -91,7 +96,7 @@ Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · G
 ## 6. Exigences fonctionnelles
 
 ### EF1 – Ingestion (ADF)
-- EF1.1 Le pipeline (activité Copy Data) interroge l'API à intervalle régulier (1 à 15 min, à justifier selon la source et les limites de requêtes).
+- EF1.1 Le pipeline (activité Copy Data) interroge les deux flux Vélib' toutes les 5 min. La source change chaque minute, mais 5 min est un bon compromis entre fraîcheur et coût, et reste sous la latence cible de 20 min (ENF1).
 - EF1.2 Les réponses brutes sont stockées sans modification dans `bronze/`, partitionnées par date et heure.
 - EF1.3 Le pipeline est paramétré (endpoint, chemin de sortie, entités interrogées).
 - EF1.4 En cas d'erreur : nouvelles tentatives automatiques, journalisation et alerte.
@@ -100,7 +105,7 @@ Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · G
 
 ### EF2 – Traitement (Synapse / Python)
 - EF2.1 **Bronze → silver :** parsing, typage, dédoublonnage, gestion des valeurs manquantes, normalisation des dates.
-- EF2.2 **Silver → gold :** calcul des indicateurs (agrégats, moyennes glissantes, tendances, détection d'anomalies).
+- EF2.2 **Silver → gold :** calcul des indicateurs : taux d'occupation (vélos / capacité) par station et global, part mécanique / électrique, nombre de stations vides, pleines et hors service, moyennes glissantes, répartition par zone, détection d'anomalies (station vide ou pleine depuis longtemps, chute brutale).
 - EF2.3 Traitement incrémental : seules les nouvelles données sont traitées.
 - EF2.4 Stockage au format Parquet / Delta partitionné.
 - EF2.5 Exposition de la couche gold via des vues SQL serverless.
@@ -108,7 +113,7 @@ Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · G
 ### EF3 – Visualisation (Power BI)
 - EF3.1 Connexion à Synapse en DirectQuery.
 - EF3.2 Actualisation automatique des pages pendant la démo.
-- EF3.3 Le dashboard contient au minimum : cartes KPI, évolution temporelle, répartition (géographique ou par catégorie), filtres interactifs, mise en évidence des anomalies.
+- EF3.3 Le dashboard contient au minimum : cartes KPI, évolution temporelle de la disponibilité, carte des stations, filtres interactifs (zone, station, type de vélo), mise en évidence des stations en anomalie.
 - EF3.4 Les insights clés sont explicitement mis en avant.
 
 ### EF4 – Infrastructure as Code (bonus)
@@ -202,7 +207,7 @@ Règles : branches par fonctionnalité, pull requests, commits explicites et ré
 | Risque | Impact | Mitigation |
 |---|---|---|
 | Épuisement des crédits Azure | Élevé | Auto-pause Spark, arrêt des triggers hors démo, alertes de budget |
-| Indisponibilité / limite de l'API | Moyen | Retry, intervalle adapté, source de secours identifiée |
+| Indisponibilité de l'API Vélib' | Moyen | Retry (ADF et client Python), validation des réponses, données d'exemple dans `tests/data/` pour la démo de secours |
 | Panne pendant la démo | Élevé | Vidéo et captures de secours, ressources démarrées à l'avance |
 | Crédits ou accès Azure indisponibles | Élevé | Activer le Student Pack dès la S1 ; sinon plan de repli local (EF5) |
 | Pas de capacité / essai Microsoft Fabric | Moyen | Demander l'essai Fabric avec le compte école ; sinon documenter la limite Terraform pour Power BI |
