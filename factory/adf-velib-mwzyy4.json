@@ -1,0 +1,15 @@
+{
+	"name": "adf-velib-mwzyy4",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "francecentral",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "91238a48-45fb-47fb-8c13-6f83ba7a7804",
+		"tenantId": "1dc8f08a-46f6-4cdb-b8ff-03e46c14979d"
+	}
+}
