@@ -64,7 +64,8 @@ flowchart LR
 | Dossier | Contenu |
 |---|---|
 | `infra/` | Terraform (azurerm + microsoft/fabric) |
-| `adf/` | Pipelines Azure Data Factory (intégration Git) |
+| `factory/`, `linkedService/`, `dataset/`, `pipeline/`, `trigger/` | Ressources Azure Data Factory, commitées automatiquement par l'intégration Git d'ADF (root folder `/`) |
+| `publish_config.json` | Configuration de publication ADF (branche `adf_publish`) |
 | `synapse/` | Notebooks PySpark et scripts SQL serverless |
 | `src/data_platform_project/` | Fonctions Python réutilisables |
 | `tests/` | Tests unitaires pytest |
@@ -81,6 +82,8 @@ uv run pytest        # lancer les tests
 uv run ruff check .  # lint
 uv run black .       # formatage
 ```
+
+Les tests de `transform.py` lancent un Spark local : ils demandent **Java 17 ou plus** et prennent environ 30 s. Sous Windows, ils corrigent eux-mêmes `SPARK_HOME` et `JAVA_HOME` pour la session de test (chemin avec espaces, installation Spark globale).
 
 ## Déploiement
 
