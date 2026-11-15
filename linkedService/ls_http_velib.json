@@ -1,0 +1,12 @@
+{
+	"name": "ls_http_velib",
+	"properties": {
+		"annotations": [],
+		"type": "HttpServer",
+		"typeProperties": {
+			"url": "https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "Anonymous"
+		}
+	}
+}
