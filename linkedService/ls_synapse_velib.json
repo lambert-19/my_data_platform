@@ -1,0 +1,12 @@
+{
+	"name": "ls_synapse_velib",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSynapseArtifacts",
+		"typeProperties": {
+			"endpoint": "https://synw-velib-mwzyy4.dev.azuresynapse.net",
+			"authentication": "MSI",
+			"workspaceResourceId": "/subscriptions/f3e382e0-40f7-4230-8bf0-f3d4864c656d/resourceGroups/rg-velib-platform/providers/Microsoft.Synapse/workspaces/synw-velib-mwzyy4"
+		}
+	}
+}
