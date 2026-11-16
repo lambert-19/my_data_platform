@@ -150,7 +150,8 @@ La grille d'évaluation porte sur les services Azure : cette option n'est retenu
 
 ```
 /infra     Terraform (modules, variables, backend)
-/adf       Pipelines, datasets, linked services (intégration Git ADF)
+/factory, /linkedService, /dataset, /pipeline, /trigger
+           Ressources ADF commitées par l'intégration Git (root folder /)
 /synapse   Notebooks PySpark et scripts SQL
 /src       Fonctions Python réutilisables
 /tests     Tests unitaires pytest

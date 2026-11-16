@@ -6,23 +6,23 @@
 
 ---
 
-## 📊 État au 15 novembre 2026 : ~25 %
+## 📊 État au 16 novembre 2026 : ~35 %
 
 | Partie | Points | État |
 |---|---|---|
 | Cadrage, source, structure | – | ✅ fait |
+| Accès Azure d'Ibrahima | – | ✅ vérifié (portail + Azure CLI) |
 | Terraform (bonus) | 2 | 🟡 infra Azure déployée, reste la partie Fabric / Power BI |
 | Qualité du code & repo | 2 | 🟡 en bonne voie |
-| **Ingestion ADF** | **6** | 🔴 à faire (Ibrahima) |
-| **Traitement Synapse** | **6** | 🔴 à faire (Ibrahima) |
-| **Power BI** | **4** | 🔴 à faire (Ibrahima) |
+| **Ingestion ADF** | **6** | 🟡 Git + linked services faits, datasets et pipeline en cours |
+| **Traitement Synapse** | **6** | 🟡 `transform.py` + 15 tests faits en local, notebooks à faire |
+| **Power BI** | **4** | 🔴 à faire |
 | Slides, oral, Q&A | 10 | 🔴 à faire (ensemble) |
 
 **Priorités d'ici au rendu :**
-1. **15 nov :** pipeline ADF → données dans `bronze` + `transform.py` en local sur `tests/data/`
-2. **16 nov :** notebooks Synapse → `silver` / `gold` + vues SQL serverless
-3. **17 nov :** dashboard Power BI + slides + vidéo de secours
-4. **18 nov :** répétitions, zip, rendu avant 23:59
+1. **16 nov :** pipeline ADF qui remplit `bronze` (debug puis déclencheur) + notebook Synapse sur les vraies données
+2. **17 nov :** vues SQL serverless + dashboard Power BI + slides + vidéo de secours
+3. **18 nov :** répétitions, zip, rendu avant 23:59
 
 ---
 
@@ -46,7 +46,7 @@
 - [x] Mettre en place l'arborescence du repo :
   ```
   /infra     → Terraform
-  /adf       → pipelines ADF (JSON, intégration Git)
+  /factory, /linkedService, /dataset, /pipeline, /trigger → ressources ADF (intégration Git, root folder /)
   /synapse   → notebooks, scripts SQL
   /src       → modules Python de transformation
   /tests     → tests unitaires
@@ -80,8 +80,11 @@
 
 > Guide pas à pas : [docs/AVANCEMENT.md](docs/AVANCEMENT.md), étape 3. Branche `feat/adf-ingestion`.
 
-- [ ] Activer l'intégration Git d'ADF **en premier** (root folder `/adf`), pipelines versionnés dans le repo
-- [ ] Linked services : HTTP Vélib' (anonyme), ADLS Gen2 (identité managée), Key Vault
+- [x] Activer l'intégration Git d'ADF (repo `lambert-19/my_data_platform`, branche `main`, root folder `/`, publication sur `adf_publish`)
+- [x] Linked service `ls_http_velib` : HTTP Vélib' (anonyme)
+- [x] Linked service `ls_adls_velib` : ADLS Gen2 (identité managée)
+- [ ] Linked service Key Vault (identité managée, exigé par le cahier des charges)
+- [ ] Datasets `ds_velib_feed` (HTTP JSON, paramètre `feed`) et `ds_bronze_json` (ADLS JSON, paramètres `folderPath` / `fileName`)
 - [ ] Copy activity (ForEach sur `station_status` et `station_information`) → JSON brut dans `bronze/velib/<flux>/yyyy/MM/dd/HH/mm.json`
 - [ ] Paramétrer le pipeline (liste des flux, chemin horodaté)
 - [ ] Trigger planifié toutes les 5 min (Vélib' change chaque minute ; compromis fraîcheur / coût, à justifier à l'oral)
@@ -99,8 +102,10 @@
 
 - [x] Lier le Data Lake au workspace Synapse (fait par Terraform) ; lire en `abfss://<container>@stvelibmwzyy4.dfs.core.windows.net/...`
 - [ ] Tester le quota Spark : notebook `print("ok")` sur `sparkvelib`
-- [ ] Aligner les versions locales sur le Spark pool (Spark 3.4 / Python 3.10) : le projet est aujourd'hui en Python 3.13 et `pyspark>=4.2`, du code qui marche en local peut échouer sur Synapse
-- [ ] Logique réutilisable dans `src/data_platform_project/transform.py` (fonctions documentées) + `tests/test_transform.py`
+- [x] Logique réutilisable dans [`transform.py`](src/data_platform_project/transform.py) (bronze → silver → gold, anomalies, watermark) + 15 tests dans `tests/test_transform.py`
+- [x] `transform.py` écrit pour Spark 3.4 / Python 3.10 (APIs communes, pas de syntaxe récente)
+- [ ] Vérifier `transform.py` sur le pool (Spark 3.4) : l'importer comme fichier dans le notebook, car `requires-python >= 3.13` empêche d'installer le `.whl` du projet sur le pool
+- [ ] Dans chaque notebook : `spark.conf.set("spark.sql.session.timeZone", "UTC")`
 - [ ] Notebook PySpark **bronze → silver** : parsing JSON, schéma, typage, dédoublonnage, valeurs nulles, fuseaux horaires, jointure `station_information`
 - [ ] Notebook **silver → gold** : KPI (taux d'occupation, stations vides / pleines / hors service, moyennes glissantes, anomalies)
 - [ ] Écriture en Parquet / Delta partitionné par date

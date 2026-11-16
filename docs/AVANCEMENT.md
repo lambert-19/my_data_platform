@@ -26,7 +26,7 @@ Le jury peut interroger n'importe lequel de nous deux sur n'importe quelle parti
 | Dossier | Contenu |
 |---|---|
 | `infra/` | Terraform : **fait** |
-| `adf/` | Pipelines Data Factory (intégration Git) : à faire |
+| `factory/`, `linkedService/`, `dataset/`, `pipeline/`, `trigger/` | Ressources Data Factory, commitées par l'intégration Git à la racine du repo |
 | `synapse/notebooks/`, `synapse/sql/` | Notebooks PySpark, vues SQL serverless : à faire |
 | `src/data_platform_project/` | Code Python réutilisable |
 | `tests/` | Tests pytest + `tests/data/` (données d'exemple) |
@@ -136,7 +136,7 @@ Tout se fait dans **ADF Studio** (`adf-velib-mwzyy4`).
 
 1. **Brancher ADF sur GitHub, en premier**, pour que chaque modification soit commitée : *Manage*, *Git configuration*, *Configure*, puis :
    - type GitHub, compte `lambert-19`, repo `my_data_platform` ;
-   - collaboration branch : `main`, **root folder : `/adf`** ;
+   - collaboration branch : `main`, root folder : `/` (choix final : ADF crée ses dossiers `factory/`, `linkedService/`, `dataset/`, `pipeline/`, `trigger/` à la racine) ;
    - ensuite, travaille sur une branche `feat/adf-ingestion`, créée depuis le menu des branches en haut, et ouvre une PR vers `main` à la fin.
 
 2. **Linked services** (*Manage*, *Linked services*) :
@@ -185,7 +185,7 @@ Tout se fait dans **ADF Studio** (`adf-velib-mwzyy4`).
    - ignorer les doublons en camelCase (`numBikesAvailable`, `numDocksAvailable`) ;
    - joindre `station_information` sur `station_id` pour avoir nom, lat/lon et capacité ;
    - ajouter l'horodatage d'ingestion (tiré du chemin bronze) ;
-   - dédoublonner sur (`station_id`, `last_reported`) ;
+   - dédoublonner sur (`station_id`, horodatage d'ingestion) : une station qui ne change pas garde le même `last_reported`, et dédoublonner sur ce champ la ferait disparaître des instantanés suivants ;
    - gérer les valeurs manquantes.
 
 3. **Silver → gold** (KPI) :

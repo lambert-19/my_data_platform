@@ -26,3 +26,8 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.1",
 ]
+
+[tool.pyright]
+# Synapse notebooks run on the Spark pool, where spark, sc, display, delta and the
+# transform module (loaded with sc.addPyFile) exist; they cannot be resolved locally.
+ignore = ["synapse/notebooks"]
