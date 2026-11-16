@@ -13,51 +13,55 @@ flowchart LR
     subgraph azure["Azure · rg-velib-platform · francecentral"]
         direction LR
 
-        subgraph ingest["Ingestion"]
-            adf["Azure Data Factory<br/>pl_ingest_velib<br/>trigger toutes les 15 min (5 min en démo)<br/>ForEach · Lookup · Copy · retry 3×"]
-            check{"Réponse<br/>valide ?"}
-            alert["❌ Fail + alerte mail"]
+        subgraph ingest["Ingestion · Azure Data Factory"]
+            adf["pl_ingest_velib<br/>trigger toutes les 15 min (5 min en démo)<br/>ForEach · Lookup · Copy · retry 3×"]
+            check{"Au moins<br/>une station ?"}
+            fail["❌ Fail<br/>INVALID_PAYLOAD"]
         end
 
-        subgraph lake["ADLS Gen2 · stvelib…"]
+        subgraph lake["ADLS Gen2 · stvelibmwzyy4"]
             bronze[("bronze<br/>JSON brut<br/>velib/feed/yyyy/MM/dd/HH/mm.json")]
             silver[("silver<br/>Delta · 1 ligne par<br/>station et instantané")]
-            gold[("gold<br/>Delta · KPI<br/>occupation, anomalies")]
+            gold[("gold · Delta<br/>network_snapshot · zone_snapshot<br/>station_timeseries · station_latest")]
         end
 
         subgraph synapse["Azure Synapse Analytics"]
-            spark["Spark pool sparkvelib<br/>notebooks PySpark"]
-            sql["SQL serverless<br/>vues sur gold"]
+            spark["Spark pool sparkvelib<br/>nb_velib_processing<br/>+ transform.py"]
+            sql["SQL serverless<br/>base velib · 4 vues"]
         end
 
         kv["🔐 Key Vault"]
+        monitor["🔔 Azure Monitor<br/>alerte run en échec<br/>→ mail à l'équipe"]
     end
 
     pbi["📊 Power BI<br/>DirectQuery<br/>actualisation auto"]
-    tf["🛠️ Terraform<br/>azurerm + microsoft/fabric"]
+    tf["🛠️ Terraform · azurerm"]
+    ci["✅ GitHub Actions<br/>lint · tests · terraform validate"]
 
     src -- "HTTP GET" --> adf
     adf --> check
     check -- "oui" --> bronze
-    check -- "non" --> alert
-    adf -. "lance le notebook" .-> spark
-    bronze -- "nettoyage, jointure,<br/>dédoublonnage" --> spark
-    spark --> silver
-    silver -- "agrégations" --> spark
-    spark --> gold
+    check -- "non" --> fail
+    adf -. "si l'ingestion réussit :<br/>lance le notebook" .-> spark
+    bronze -- "nouveaux instantanés" --> spark
+    spark -- "1 · nettoyage, jointure,<br/>MERGE sans doublons" --> silver
+    spark -- "2 · KPI, anomalies" --> gold
     gold --> sql
     sql --> pbi
 
+    adf -. "runs en échec" .-> monitor
     kv -. "identités managées" .- adf
     kv -. "identités managées" .- spark
     tf -. "déploie" .-> azure
+    ci -. "vérifie" .-> tf
 ```
 
 - **Ingestion :** ADF interroge l'API Vélib' toutes les 15 min (5 min pendant la démo), vérifie que la réponse contient des stations et écrit le JSON brut dans `bronze`. Il lance ensuite le notebook de traitement.
 - **Traitement :** le notebook PySpark `nb_velib_processing` nettoie les nouveaux instantanés (`silver`, Delta, `MERGE` sans doublons) puis recalcule les KPI (`gold`). Le code vient de [`transform.py`](src/data_platform_project/transform.py), testé en local.
 - **Exposition :** des vues SQL serverless (base `velib`) publient les 4 tables `gold`, lues par Power BI en DirectQuery.
 - **Sécurité :** aucune clé ni mot de passe ; ADF et Synapse accèdent au Data Lake et au Key Vault par identité managée.
-- **Infrastructure :** toutes les ressources Azure sont déployées par Terraform ([infra/](infra/)).
+- **Supervision :** une alerte Azure Monitor envoie un mail à l'équipe dès qu'un run du pipeline échoue.
+- **Infrastructure :** toutes les ressources Azure sont déployées par Terraform ([infra/](infra/)), vérifié à chaque push par la CI GitHub Actions.
 
 ## Organisation du repo
 
