@@ -1,0 +1,353 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "adf-velib-mwzyy4"
+		},
+		"ls_adls_velib_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://stvelibmwzyy4.dfs.core.windows.net/"
+		},
+		"ls_http_velib_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_adls_velib')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('ls_adls_velib_properties_typeProperties_url')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_http_velib')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "HttpServer",
+				"typeProperties": {
+					"url": "[parameters('ls_http_velib_properties_typeProperties_url')]",
+					"enableServerCertificateValidation": true,
+					"authenticationType": "Anonymous"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_bronze_json')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_adls_velib",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"folderPath": {
+						"type": "string"
+					},
+					"fileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().fileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().folderPath",
+							"type": "Expression"
+						},
+						"fileSystem": "bronze"
+					}
+				},
+				"schema": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_velib')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_velib_feed')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_http_velib",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"feed": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "HttpServerLocation",
+						"relativeUrl": {
+							"value": "@{dataset().feed}.json",
+							"type": "Expression"
+						}
+					}
+				},
+				"schema": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_http_velib')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_ingest_velib')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Copies the Vélib' GBFS feeds to bronze/velib/<feed>/yyyy/MM/dd/HH/mm.json (same layout as velib.bronze_path).",
+				"activities": [
+					{
+						"name": "ForEachFeed",
+						"type": "ForEach",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@pipeline().parameters.feeds",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "LookupFeed",
+									"description": "Reads the feed to check it before copying it (same rules as velib.validate_payload).",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.00:05:00",
+										"retry": 3,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "JsonSource",
+											"storeSettings": {
+												"type": "HttpReadSettings",
+												"requestMethod": "GET"
+											},
+											"formatSettings": {
+												"type": "JsonReadSettings"
+											}
+										},
+										"dataset": {
+											"referenceName": "ds_velib_feed",
+											"type": "DatasetReference",
+											"parameters": {
+												"feed": {
+													"value": "@item()",
+													"type": "Expression"
+												}
+											}
+										},
+										"firstRowOnly": true
+									}
+								},
+								{
+									"name": "IfFeedIsValid",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "LookupFeed",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@greater(length(coalesce(activity('LookupFeed').output?.firstRow?.data?.stations, json('[]'))), 0)",
+											"type": "Expression"
+										},
+										"ifFalseActivities": [
+											{
+												"name": "FailInvalidFeed",
+												"type": "Fail",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"message": {
+														"value": "@concat('Invalid Velib payload for feed ', item(), ': no stations in data.stations')",
+														"type": "Expression"
+													},
+													"errorCode": "INVALID_PAYLOAD"
+												}
+											}
+										],
+										"ifTrueActivities": [
+											{
+												"name": "CopyFeedToBronze",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.00:05:00",
+													"retry": 3,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "JsonSource",
+														"storeSettings": {
+															"type": "HttpReadSettings",
+															"requestMethod": "GET"
+														},
+														"formatSettings": {
+															"type": "JsonReadSettings"
+														}
+													},
+													"sink": {
+														"type": "JsonSink",
+														"storeSettings": {
+															"type": "AzureBlobFSWriteSettings"
+														},
+														"formatSettings": {
+															"type": "JsonWriteSettings"
+														}
+													},
+													"enableStaging": false,
+													"dataIntegrationUnits": 2
+												},
+												"inputs": [
+													{
+														"referenceName": "ds_velib_feed",
+														"type": "DatasetReference",
+														"parameters": {
+															"feed": {
+																"value": "@item()",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "ds_bronze_json",
+														"type": "DatasetReference",
+														"parameters": {
+															"folderPath": {
+																"value": "@concat('velib/', item(), '/', formatDateTime(pipeline().TriggerTime, 'yyyy/MM/dd/HH'))",
+																"type": "Expression"
+															},
+															"fileName": {
+																"value": "@concat(formatDateTime(pipeline().TriggerTime, 'mm'), '.json')",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "FailIngestion",
+						"description": "Explicit failure so the run shows up as failed in Monitor and triggers the alert.",
+						"type": "Fail",
+						"dependsOn": [
+							{
+								"activity": "ForEachFeed",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"message": {
+								"value": "@concat('Velib ingestion failed at ', string(pipeline().TriggerTime), ': ', coalesce(activity('ForEachFeed').error?.message, 'see inner activity errors'))",
+								"type": "Expression"
+							},
+							"errorCode": "INGESTION_FAILED"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"feeds": {
+						"type": "array",
+						"defaultValue": [
+							"station_status",
+							"station_information"
+						]
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_velib_feed')]",
+				"[concat(variables('factoryId'), '/datasets/ds_bronze_json')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/tr_every_15min')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Every 15 min during development; switch to 5 min for the demo.",
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "pl_ingest_velib",
+							"type": "PipelineReference"
+						},
+						"parameters": {}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Minute",
+						"interval": 15,
+						"startTime": "2026-11-16T19:00:00Z",
+						"timeZone": "UTC"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_ingest_velib')]"
+			]
+		}
+	]
+}

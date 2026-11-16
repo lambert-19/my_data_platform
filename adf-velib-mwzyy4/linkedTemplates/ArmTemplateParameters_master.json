@@ -1,0 +1,21 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "adf-velib-mwzyy4"
+		},
+		"ls_adls_velib_properties_typeProperties_url": {
+			"value": "https://stvelibmwzyy4.dfs.core.windows.net/"
+		},
+		"ls_http_velib_properties_typeProperties_url": {
+			"value": "https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}
