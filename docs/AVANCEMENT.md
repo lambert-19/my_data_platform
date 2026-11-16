@@ -10,6 +10,8 @@ Les étapes 3 et 4 sont faites et tournent sur Azure. Le détail des tâches est
 - **Ingestion ADF :** pipeline `pl_ingest_velib` (ForEach sur les 2 flux → `LookupFeed` → `IfFeedIsValid` → `CopyFeedToBronze`, sinon `FailInvalidFeed` ; `FailIngestion` si l'ingestion échoue). Déclencheur `tr_every_15min` publié et actif. Les JSON sont commités à la racine du repo (root folder `/`, choix final).
 - **Traitement Synapse :** notebook `nb_velib_processing`, qui charge [`transform.py`](../src/data_platform_project/transform.py) depuis `synapse/libs/` sur le lac. Silver en Delta incrémental (`MERGE`), 4 tables gold, vues SQL serverless dans la base `velib`.
 - **ADF terminé :** le notebook est lancé après chaque ingestion (latence ~3 à 5 min), alerte mail `alert-adf-failed-runs` vers nous deux, linked service Key Vault publié. Penser à arrêter le déclencheur la nuit (*Stop* + *Publish*).
+- **Qualité (PR #6) :** CI GitHub Actions (lint, tests, `terraform validate`), rôles dans le cahier des charges, dossier `adf/` supprimé.
+- **Pour toi (Saer), au prochain `terraform apply` :** l'alerte mail et le rôle Synapse d'ADF ont été créés à la main puis décrits en Terraform (`monitoring.tf`, `rbac.tf`). [`infra/imports.tf`](../infra/imports.tf) les fait adopter par le state. Ajoute d'abord `alert_emails = ["ibrahima.ndaw@supinfo.com", "saer.diene@supinfo.com"]` dans `terraform.tfvars`, sinon l'apply retire les deux adresses de l'alerte. Après l'apply, supprime `imports.tf`.
 - **Reste :** Power BI, slides, répétitions, bonus Fabric.
 - **Attention :** l'historique de `main` a été réécrit le 16 nov (3 commits ADF, contenu identique). Avant de pousser : `git fetch && git reset --hard origin/main` si tu n'as rien en local sur `main`.
 

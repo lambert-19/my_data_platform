@@ -6,14 +6,14 @@
 
 ---
 
-## 📊 État au 16 novembre 2026 (soir) : ~60 %
+## 📊 État au 16 novembre 2026 (soir) : ~65 %
 
 | Partie | Points | État |
 |---|---|---|
 | Cadrage, source, structure | – | ✅ fait |
 | Accès Azure d'Ibrahima | – | ✅ vérifié (portail + Azure CLI) |
-| Terraform (bonus) | 2 | 🟡 infra Azure déployée, reste la partie Fabric / Power BI |
-| Qualité du code & repo | 2 | 🟡 PR #1 à #5, tests, docs ; reste les captures |
+| Terraform (bonus) | 2 | 🟡 infra Azure + alerte + rôle Synapse d'ADF en code ; reste l'`apply` de Saer et la partie Fabric |
+| Qualité du code & repo | 2 | 🟢 CI GitHub Actions, PR #1 à #6, 30 tests, clone à neuf validé ; reste les captures |
 | **Ingestion ADF** | **6** | ✅ pipeline publié : ingestion + validation + notebook Synapse, alerte mail ; latence de bout en bout ~3 à 5 min |
 | **Traitement Synapse** | **6** | ✅ notebook bronze → silver → gold lancé par ADF à chaque run + vues SQL serverless |
 | **Power BI** | **4** | 🔴 à faire |
@@ -61,7 +61,8 @@
 - [x] ~~Plan B local~~ → non nécessaire, l'accès Azure fonctionne
 - [x] Dessiner le schéma d'architecture → Mermaid dans le [README](README.md)
 - [x] Répartir les rôles → voir [docs/AVANCEMENT.md](docs/AVANCEMENT.md) (Saer : setup + infra ; Ibrahima : ADF, Synapse, Power BI)
-- [ ] Valider le cahier des charges ([CAHIER_DES_CHARGES.md](CAHIER_DES_CHARGES.md)) en équipe et compléter la section 11 (rôles)
+- [x] Compléter la section 11 (rôles) du [cahier des charges](CAHIER_DES_CHARGES.md)
+- [ ] Relire et valider le cahier des charges à deux
 
 ## Phase 1 – Infrastructure as Code avec Terraform (bonus 2 pts) 🟡
 
@@ -76,7 +77,10 @@
 - [x] Variables, outputs, `terraform.tfvars.example` — aucun secret commité
 - [ ] Provider **Microsoft Fabric** (`microsoft/fabric`) recommandé par le sujet : workspace Fabric pour Power BI (`fabric_workspace`), rattaché à une capacité Fabric (essai ou SKU F)
 - [ ] Combiner les deux providers : `azurerm` (Storage, Key Vault, ADF, Synapse) + `fabric` (workspace / éléments Power BI)
-- [ ] (Optionnel) GitHub Actions : `terraform fmt` / `validate` / `plan`
+- [x] Alerte mail (`monitoring.tf`) et rôle Synapse d'ADF (`rbac.tf`) décrits en Terraform, avec des blocs `import` pour les ressources créées à la main
+- [x] `budget.tf` : date de départ en variable (`plantimestamp()` cassait `terraform validate`)
+- [ ] **Saer :** ajouter `alert_emails = ["ibrahima.ndaw@supinfo.com", "saer.diene@supinfo.com"]` dans `terraform.tfvars`, lancer `terraform apply`, puis supprimer `infra/imports.tf`
+- [x] CI GitHub Actions : `terraform fmt -check` + `terraform validate` (pas de `plan` : pas d'identifiants Azure dans la CI)
 
 ## Phase 2 – Ingestion avec Azure Data Factory (6 pts) ✅
 
@@ -135,9 +139,12 @@
 - [ ] README : ~~résumé~~ ✅, ~~schéma d'architecture~~ ✅, ~~stack~~ ✅, ~~procédure de déploiement~~ ✅, captures, répartition des rôles
 - [x] Formatage / lint Python configurés (`black`, `ruff`, `pytest` via uv)
 - [x] `.gitignore` : `.tfstate`, `.terraform/`, `.env`, secrets
-- [x] Branches + pull requests (PR #1 à #5)
+- [x] Branches + pull requests (PR #1 à #6)
+- [x] CI GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) à chaque push et PR : `ruff`, `black`, `pytest`, `terraform fmt` + `validate`
+- [ ] Vérifier que la CI est verte dans l'onglet *Actions* de GitHub
 - [ ] Commits réguliers et explicites de **chaque** membre jusqu'au rendu
-- [ ] Test final : cloner le repo à neuf et suivre le README
+- [x] Test final : clone à neuf → `uv sync --locked` → lint → 30/30 tests (16 nov)
+- [x] Dossier `adf/` vide supprimé
 
 ## Phase 6 – Présentation & démo 🔴
 

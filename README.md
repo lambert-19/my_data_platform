@@ -71,6 +71,7 @@ flowchart LR
 | `tests/` | Tests unitaires pytest |
 | `powerbi/` | Rapport `.pbix` et captures |
 | `docs/` | Architecture, guide de déploiement, slides |
+| `.github/workflows/` | CI : lint, tests, validation Terraform |
 
 ## Développement local
 
@@ -82,6 +83,8 @@ uv run pytest        # lancer les tests
 uv run ruff check .  # lint
 uv run black .       # formatage
 ```
+
+La CI GitHub Actions ([ci.yml](.github/workflows/ci.yml)) lance les mêmes vérifications à chaque push et pull request, plus `terraform fmt -check` et `terraform validate` sur [infra/](infra/).
 
 Les tests de `transform.py` lancent un Spark local : ils demandent **Java 17 ou plus** et prennent environ 30 s. Sous Windows, ils corrigent eux-mêmes `SPARK_HOME` et `JAVA_HOME` pour la session de test (chemin avec espaces, installation Spark globale).
 
