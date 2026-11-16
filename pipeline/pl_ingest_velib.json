@@ -69,6 +69,21 @@
 									"value": "@greater(length(coalesce(activity('LookupFeed').output?.firstRow?.data?.stations, json('[]'))), 0)",
 									"type": "Expression"
 								},
+								"ifFalseActivities": [
+									{
+										"name": "FailInvalidFeed",
+										"type": "Fail",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"message": {
+												"value": "@concat('Invalid Velib payload for feed ', item(), ': no stations in data.stations')",
+												"type": "Expression"
+											},
+											"errorCode": "INVALID_PAYLOAD"
+										}
+									}
+								],
 								"ifTrueActivities": [
 									{
 										"name": "CopyFeedToBronze",
@@ -134,21 +149,6 @@
 											}
 										]
 									}
-								],
-								"ifFalseActivities": [
-									{
-										"name": "FailInvalidFeed",
-										"type": "Fail",
-										"dependsOn": [],
-										"userProperties": [],
-										"typeProperties": {
-											"message": {
-												"value": "@concat('Invalid Velib payload for feed ', item(), ': no stations in data.stations')",
-												"type": "Expression"
-											},
-											"errorCode": "INVALID_PAYLOAD"
-										}
-									}
 								]
 							}
 						}
@@ -198,14 +198,26 @@
 				"userProperties": [],
 				"typeProperties": {
 					"notebook": {
-						"referenceName": "nb_velib_processing",
+						"referenceName": {
+							"value": "nb_velib_processing",
+							"type": "Expression"
+						},
 						"type": "NotebookReference"
 					},
 					"snapshot": true,
 					"sparkPool": {
-						"referenceName": "sparkvelib",
+						"referenceName": {
+							"value": "sparkvelib",
+							"type": "Expression"
+						},
 						"type": "BigDataPoolReference"
-					}
+					},
+					"conf": {
+						"spark.dynamicAllocation.enabled": null,
+						"spark.dynamicAllocation.minExecutors": null,
+						"spark.dynamicAllocation.maxExecutors": null
+					},
+					"numExecutors": null
 				},
 				"linkedServiceName": {
 					"referenceName": "ls_synapse_velib",
