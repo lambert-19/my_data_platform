@@ -11,6 +11,9 @@
 		"ls_http_velib_properties_typeProperties_url": {
 			"value": "https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/"
 		},
+		"ls_synapse_velib_properties_typeProperties_endpoint": {
+			"value": "https://synw-velib-mwzyy4.dev.azuresynapse.net"
+		},
 		"containerUri": {
 			"value": ""
 		},

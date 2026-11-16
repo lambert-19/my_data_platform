@@ -14,6 +14,10 @@
 		"ls_http_velib_properties_typeProperties_url": {
 			"type": "string",
 			"defaultValue": "https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/"
+		},
+		"ls_synapse_velib_properties_typeProperties_endpoint": {
+			"type": "string",
+			"defaultValue": "https://synw-velib-mwzyy4.dev.azuresynapse.net"
 		}
 	},
 	"variables": {
@@ -199,6 +203,54 @@
 							},
 							"errorCode": "INGESTION_FAILED"
 						}
+					},
+					{
+						"name": "RunProcessingNotebook",
+						"description": "bronze -> silver -> gold, right after the ingestion (EF1.6).",
+						"type": "SynapseNotebook",
+						"dependsOn": [
+							{
+								"activity": "ForEachFeed",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.00:30:00",
+							"retry": 1,
+							"retryIntervalInSeconds": 60,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": {
+									"value": "nb_velib_processing",
+									"type": "Expression"
+								},
+								"type": "NotebookReference"
+							},
+							"snapshot": true,
+							"sparkPool": {
+								"referenceName": {
+									"value": "sparkvelib",
+									"type": "Expression"
+								},
+								"type": "BigDataPoolReference"
+							},
+							"conf": {
+								"spark.dynamicAllocation.enabled": null,
+								"spark.dynamicAllocation.minExecutors": null,
+								"spark.dynamicAllocation.maxExecutors": null
+							},
+							"numExecutors": null
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_synapse_velib",
+							"type": "LinkedServiceReference"
+						}
 					}
 				],
 				"policy": {
@@ -216,6 +268,7 @@
 				"annotations": []
 			},
 			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_synapse_velib')]",
 				"[concat(variables('factoryId'), '/datasets/ds_velib_feed')]",
 				"[concat(variables('factoryId'), '/datasets/ds_bronze_json')]"
 			]
@@ -314,6 +367,21 @@
 					"url": "[parameters('ls_http_velib_properties_typeProperties_url')]",
 					"enableServerCertificateValidation": true,
 					"authenticationType": "Anonymous"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_synapse_velib')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSynapseArtifacts",
+				"typeProperties": {
+					"endpoint": "[parameters('ls_synapse_velib_properties_typeProperties_endpoint')]",
+					"authentication": "MSI",
+					"workspaceResourceId": "/subscriptions/f3e382e0-40f7-4230-8bf0-f3d4864c656d/resourceGroups/rg-velib-platform/providers/Microsoft.Synapse/workspaces/synw-velib-mwzyy4"
 				}
 			},
 			"dependsOn": []
