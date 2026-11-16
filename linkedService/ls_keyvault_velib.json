@@ -1,0 +1,10 @@
+{
+	"name": "ls_keyvault_velib",
+	"properties": {
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://kv-velib-mwzyy4.vault.azure.net/"
+		}
+	}
+}
