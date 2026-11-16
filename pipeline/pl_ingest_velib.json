@@ -16,8 +16,9 @@
 					"isSequential": false,
 					"activities": [
 						{
-							"name": "CopyFeedToBronze",
-							"type": "Copy",
+							"name": "LookupFeed",
+							"description": "Reads the feed to check it before copying it (same rules as velib.validate_payload).",
+							"type": "Lookup",
 							"dependsOn": [],
 							"policy": {
 								"timeout": "0.00:05:00",
@@ -38,20 +39,7 @@
 										"type": "JsonReadSettings"
 									}
 								},
-								"sink": {
-									"type": "JsonSink",
-									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
-									},
-									"formatSettings": {
-										"type": "JsonWriteSettings"
-									}
-								},
-								"enableStaging": false,
-								"dataIntegrationUnits": 2
-							},
-							"inputs": [
-								{
+								"dataset": {
 									"referenceName": "ds_velib_feed",
 									"type": "DatasetReference",
 									"parameters": {
@@ -60,26 +48,132 @@
 											"type": "Expression"
 										}
 									}
+								},
+								"firstRowOnly": true
+							}
+						},
+						{
+							"name": "IfFeedIsValid",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "LookupFeed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
 								}
 							],
-							"outputs": [
-								{
-									"referenceName": "ds_bronze_json",
-									"type": "DatasetReference",
-									"parameters": {
-										"folderPath": {
-											"value": "@concat('velib/', item(), '/', formatDateTime(pipeline().TriggerTime, 'yyyy/MM/dd/HH'))",
-											"type": "Expression"
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(length(coalesce(activity('LookupFeed').output?.firstRow?.data?.stations, json('[]'))), 0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "CopyFeedToBronze",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.00:05:00",
+											"retry": 3,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
 										},
-										"fileName": {
-											"value": "@concat(formatDateTime(pipeline().TriggerTime, 'mm'), '.json')",
-											"type": "Expression"
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "JsonSource",
+												"storeSettings": {
+													"type": "HttpReadSettings",
+													"requestMethod": "GET"
+												},
+												"formatSettings": {
+													"type": "JsonReadSettings"
+												}
+											},
+											"sink": {
+												"type": "JsonSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "JsonWriteSettings"
+												}
+											},
+											"enableStaging": false,
+											"dataIntegrationUnits": 2
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_velib_feed",
+												"type": "DatasetReference",
+												"parameters": {
+													"feed": {
+														"value": "@item()",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_bronze_json",
+												"type": "DatasetReference",
+												"parameters": {
+													"folderPath": {
+														"value": "@concat('velib/', item(), '/', formatDateTime(pipeline().TriggerTime, 'yyyy/MM/dd/HH'))",
+														"type": "Expression"
+													},
+													"fileName": {
+														"value": "@concat(formatDateTime(pipeline().TriggerTime, 'mm'), '.json')",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								],
+								"ifFalseActivities": [
+									{
+										"name": "FailInvalidFeed",
+										"type": "Fail",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"message": {
+												"value": "@concat('Invalid Velib payload for feed ', item(), ': no stations in data.stations')",
+												"type": "Expression"
+											},
+											"errorCode": "INVALID_PAYLOAD"
 										}
 									}
-								}
-							]
+								]
+							}
 						}
 					]
+				}
+			},
+			{
+				"name": "FailIngestion",
+				"description": "Explicit failure so the run shows up as failed in Monitor and triggers the alert.",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "ForEachFeed",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": {
+						"value": "@concat('Velib ingestion failed at ', string(pipeline().TriggerTime), ': ', coalesce(activity('ForEachFeed').error?.message, 'see inner activity errors'))",
+						"type": "Expression"
+					},
+					"errorCode": "INGESTION_FAILED"
 				}
 			}
 		],
