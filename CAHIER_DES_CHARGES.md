@@ -52,7 +52,7 @@ Le projet est évalué lors d'une démonstration live de 15 minutes suivie de 5 
 | Flux utilisés | `station_status.json` (vélos et bornes disponibles, ~1 min) · `station_information.json` (nom, lat/lon, capacité, quasi statique) |
 | Volume | ~1 520 stations, jointes sur `station_id` |
 | Fréquence de mise à jour de la source | Environ chaque minute |
-| Limite de requêtes | Non documentée : usage raisonnable, 2 appels toutes les 5 min |
+| Limite de requêtes | Non documentée : usage raisonnable, 4 appels par run (vérification + copie, pour 2 flux) |
 | Justification du choix | Données publiques, sans clé, mises à jour chaque minute, géolocalisées, avec des anomalies naturelles (stations vides, pleines ou hors service) qui rendent la démonstration temps réel parlante |
 
 Le client Python de la source est dans [`src/data_platform_project/velib.py`](src/data_platform_project/velib.py) (téléchargement avec retry, validation des réponses, chemin bronze).
@@ -96,7 +96,7 @@ Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · G
 ## 6. Exigences fonctionnelles
 
 ### EF1 – Ingestion (ADF)
-- EF1.1 Le pipeline (activité Copy Data) interroge les deux flux Vélib' toutes les 5 min. La source change chaque minute, mais 5 min est un bon compromis entre fraîcheur et coût, et reste sous la latence cible de 20 min (ENF1).
+- EF1.1 Le pipeline (activité Copy Data) interroge les deux flux Vélib' à intervalle régulier : toutes les 15 min pendant le développement, pour limiter le coût, et toutes les 5 min pendant la démo. La source change chaque minute ; 5 min est un bon compromis entre fraîcheur et coût et reste sous la latence cible de 20 min (ENF1).
 - EF1.2 Les réponses brutes sont stockées sans modification dans `bronze/`, partitionnées par date et heure.
 - EF1.3 Le pipeline est paramétré (endpoint, chemin de sortie, entités interrogées).
 - EF1.4 En cas d'erreur : nouvelles tentatives automatiques, journalisation et alerte.

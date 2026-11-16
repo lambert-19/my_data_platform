@@ -6,22 +6,24 @@
 
 ---
 
-## 📊 État au 16 novembre 2026 : ~35 %
+## 📊 État au 16 novembre 2026 (soir) : ~55 %
 
 | Partie | Points | État |
 |---|---|---|
 | Cadrage, source, structure | – | ✅ fait |
 | Accès Azure d'Ibrahima | – | ✅ vérifié (portail + Azure CLI) |
 | Terraform (bonus) | 2 | 🟡 infra Azure déployée, reste la partie Fabric / Power BI |
-| Qualité du code & repo | 2 | 🟡 en bonne voie |
-| **Ingestion ADF** | **6** | 🟡 Git + linked services faits, datasets et pipeline en cours |
-| **Traitement Synapse** | **6** | 🟡 `transform.py` + 15 tests faits en local, notebooks à faire |
+| Qualité du code & repo | 2 | 🟡 PR #1 à #5, tests, docs ; reste les captures |
+| **Ingestion ADF** | **6** | 🟢 pipeline validé + déclencheur actif (15 min) ; reste à publier l'appel du notebook et l'alerte mail |
+| **Traitement Synapse** | **6** | 🟢 notebook bronze → silver → gold testé sur Azure + vues SQL serverless |
 | **Power BI** | **4** | 🔴 à faire |
 | Slides, oral, Q&A | 10 | 🔴 à faire (ensemble) |
 
+**Premiers résultats (16 nov, 18h19 UTC) :** 1 525 stations, 17 673 vélos (11 035 mécaniques, 6 638 électriques), 35 % d'occupation ; centre de Paris (1er–4e) à 70–74 %, Est et Nord (14e, 18e, 19e, 20e) sous 20 %.
+
 **Priorités d'ici au rendu :**
-1. **16 nov :** pipeline ADF qui remplit `bronze` (debug puis déclencheur) + notebook Synapse sur les vraies données
-2. **17 nov :** vues SQL serverless + dashboard Power BI + slides + vidéo de secours
+1. **16 nov (soir) :** Debug + Publish du pipeline avec le notebook (ADF Studio)
+2. **17 nov :** dashboard Power BI + alerte mail ADF + slides + vidéo de secours
 3. **18 nov :** répétitions, zip, rendu avant 23:59
 
 ---
@@ -31,8 +33,8 @@
 | Semaine | Période | Objectif | Réalisé |
 |---|---|---|---|
 | S1 | 21 – 27 oct | Setup, choix de la source, base Terraform | ✅ |
-| S2 | 28 oct – 3 nov | Ingestion ADF fonctionnelle de bout en bout | 🟡 infra seulement |
-| S3 | 4 – 10 nov | Traitement Synapse + dashboard Power BI | 🔴 en retard |
+| S2 | 28 oct – 3 nov | Ingestion ADF fonctionnelle de bout en bout | ✅ (rattrapé le 16 nov) |
+| S3 | 4 – 10 nov | Traitement Synapse + dashboard Power BI | 🟡 Synapse fait le 16 nov, Power BI en cours |
 | S4 | 11 – 18 nov | Finitions, documentation, slides, répétitions, rendu | 🔴 en cours |
 
 ---
@@ -76,42 +78,46 @@
 - [ ] Combiner les deux providers : `azurerm` (Storage, Key Vault, ADF, Synapse) + `fabric` (workspace / éléments Power BI)
 - [ ] (Optionnel) GitHub Actions : `terraform fmt` / `validate` / `plan`
 
-## Phase 2 – Ingestion avec Azure Data Factory (6 pts) 🔴
+## Phase 2 – Ingestion avec Azure Data Factory (6 pts) 🟢
 
-> Guide pas à pas : [docs/AVANCEMENT.md](docs/AVANCEMENT.md), étape 3. Branche `feat/adf-ingestion`.
+> Les ressources ADF sont commitées sur `main` (intégration Git) : [`pipeline/pl_ingest_velib.json`](pipeline/pl_ingest_velib.json), `dataset/`, `linkedService/`, `trigger/`.
 
 - [x] Activer l'intégration Git d'ADF (repo `lambert-19/my_data_platform`, branche `main`, root folder `/`, publication sur `adf_publish`)
 - [x] Linked service `ls_http_velib` : HTTP Vélib' (anonyme)
 - [x] Linked service `ls_adls_velib` : ADLS Gen2 (identité managée)
 - [ ] Linked service Key Vault (identité managée, exigé par le cahier des charges)
-- [ ] Datasets `ds_velib_feed` (HTTP JSON, paramètre `feed`) et `ds_bronze_json` (ADLS JSON, paramètres `folderPath` / `fileName`)
-- [ ] Copy activity (ForEach sur `station_status` et `station_information`) → JSON brut dans `bronze/velib/<flux>/yyyy/MM/dd/HH/mm.json`
-- [ ] Paramétrer le pipeline (liste des flux, chemin horodaté)
-- [ ] Trigger planifié toutes les 5 min (Vélib' change chaque minute ; compromis fraîcheur / coût, à justifier à l'oral)
-- [ ] Gestion des erreurs :
-  - [ ] Retry policy + timeout sur les activités (3 × 30 s, timeout 5 min)
-  - [ ] Chemin « on failure » (log d'erreur, alerte mail / Logic App)
-  - [ ] Validation de la réponse (vide / invalide) via If Condition ou Validation
-- [ ] Déclencher le notebook Synapse après l'ingestion (donner un rôle Synapse à l'identité d'ADF)
-- [ ] Configurer les alertes de monitoring + captures d'exécutions réussies
+- [x] Datasets `ds_velib_feed` (HTTP JSON, paramètre `feed`) et `ds_bronze_json` (ADLS JSON, paramètres `folderPath` / `fileName`)
+- [x] Copy activity (ForEach sur `station_status` et `station_information`) → JSON brut dans `bronze/velib/<flux>/yyyy/MM/dd/HH/mm.json` (testé : fichiers identiques à l'API)
+- [x] Paramétrer le pipeline (paramètre `feeds`, chemin horodaté sur `TriggerTime`, 2 DIU)
+- [x] Trigger `tr_every_15min` publié et actif depuis le 16 nov 19h00 UTC (runs toutes les 15 min en succès)
+- [ ] Passer le trigger à 5 min pour la démo, et l'arrêter la nuit (*Manage* → *Triggers* → *Stop* → *Publish*)
+- [x] Gestion des erreurs :
+  - [x] Retry policy + timeout sur les activités (3 × 30 s, timeout 5 min)
+  - [x] Validation de la réponse : `LookupFeed` + `IfFeedIsValid` (au moins une station), sinon `FailInvalidFeed` (`INVALID_PAYLOAD`)
+  - [x] Chemin « on failure » : `FailIngestion` (`INGESTION_FAILED`, message d'erreur explicite)
+  - [ ] Alerte mail : *Monitor* → *Alerts & metrics* → *Failed pipeline runs* > 0
+- [x] Activité `RunProcessingNotebook` après l'ingestion (linked service `ls_synapse_velib`, identité d'ADF déjà *Synapse Administrator*)
+- [ ] **Debug + Publish** du pipeline avec `RunProcessingNotebook` (la version publiée n'a encore que l'ingestion)
+- [ ] Captures d'exécutions réussies (*Monitor*) et des fichiers dans `bronze` pour les slides
 - [ ] (Optionnel) Event Hubs + Spark Structured Streaming pour un vrai temps réel
 
-## Phase 3 – Traitement temps réel avec Synapse & Python (6 pts) 🔴
+## Phase 3 – Traitement temps réel avec Synapse & Python (6 pts) 🟢
 
-> Guide pas à pas : [docs/AVANCEMENT.md](docs/AVANCEMENT.md), étape 4. Branche `feat/synapse-processing`.
+> Notebook : [`synapse/notebooks/nb_velib_processing.ipynb`](synapse/notebooks/nb_velib_processing.ipynb) · vues : [`synapse/sql/`](synapse/sql/) (PR #5).
 
 - [x] Lier le Data Lake au workspace Synapse (fait par Terraform) ; lire en `abfss://<container>@stvelibmwzyy4.dfs.core.windows.net/...`
-- [ ] Tester le quota Spark : notebook `print("ok")` sur `sparkvelib`
+- [x] Quota Spark OK : `sparkvelib` démarre et exécute le notebook
 - [x] Logique réutilisable dans [`transform.py`](src/data_platform_project/transform.py) (bronze → silver → gold, anomalies, watermark) + 15 tests dans `tests/test_transform.py`
-- [x] `transform.py` écrit pour Spark 3.4 / Python 3.10 (APIs communes, pas de syntaxe récente)
-- [ ] Vérifier `transform.py` sur le pool (Spark 3.4) : l'importer comme fichier dans le notebook, car `requires-python >= 3.13` empêche d'installer le `.whl` du projet sur le pool
-- [ ] Dans chaque notebook : `spark.conf.set("spark.sql.session.timeZone", "UTC")`
-- [ ] Notebook PySpark **bronze → silver** : parsing JSON, schéma, typage, dédoublonnage, valeurs nulles, fuseaux horaires, jointure `station_information`
-- [ ] Notebook **silver → gold** : KPI (taux d'occupation, stations vides / pleines / hors service, moyennes glissantes, anomalies)
-- [ ] Écriture en Parquet / Delta partitionné par date
-- [ ] Traitement incrémental (watermark ou Structured Streaming avec checkpoints)
-- [ ] Vues SQL serverless sur la couche gold pour Power BI
-- [ ] Logs : lignes en entrée / sortie, durée de traitement, latence de bout en bout
+- [x] `transform.py` vérifié sur le pool (Spark 3.4) : chargé depuis `abfss://synapse@stvelibmwzyy4.dfs.core.windows.net/libs/transform.py` avec `sc.addPyFile` (un seul code source pour les tests et Synapse)
+- [ ] Après chaque modification de `transform.py`, le recopier sur le lac (commande dans le [README](README.md#déploiement))
+- [x] Fuseau horaire UTC et 8 partitions de shuffle fixés dans le notebook
+- [x] **Bronze → silver** : parsing JSON, schéma explicite, typage, dédoublonnage (`station_id`, `ingested_at`), valeurs nulles, jointure `station_information`
+- [x] **Silver → gold** : 4 tables (`network_snapshot`, `zone_snapshot`, `station_timeseries`, `station_latest`) : occupation, vides / pleines / hors service, moyenne glissante 1 h, anomalies
+- [x] Écriture en Delta (silver partitionné par `snapshot_date`)
+- [x] Traitement incrémental : watermark sur `ingested_at` + `MERGE` Delta (rejouable sans doublons)
+- [x] Vues SQL serverless sur gold dans la base `velib` (testées : 2 instantanés lisibles)
+- [x] Logs : lignes, instantanés, latence, durée (run manuel : 51 s)
+- [ ] Mesurer la latence de bout en bout une fois le notebook lancé par ADF (cible ≤ 20 min, ENF1)
 
 ## Phase 4 – Visualisation avec Power BI (4 pts) 🔴
 
@@ -125,10 +131,10 @@
 
 ## Phase 5 – Qualité du code & repo (2 pts) 🟡
 
-- [ ] README : ~~résumé~~ ✅, ~~schéma d'architecture~~ ✅, ~~stack~~ ✅, procédure de déploiement, captures, répartition des rôles
+- [ ] README : ~~résumé~~ ✅, ~~schéma d'architecture~~ ✅, ~~stack~~ ✅, ~~procédure de déploiement~~ ✅, captures, répartition des rôles
 - [x] Formatage / lint Python configurés (`black`, `ruff`, `pytest` via uv)
 - [x] `.gitignore` : `.tfstate`, `.terraform/`, `.env`, secrets
-- [x] Branches + pull requests (PR #1 à #4)
+- [x] Branches + pull requests (PR #1 à #5)
 - [ ] Commits réguliers et explicites de **chaque** membre jusqu'au rendu
 - [ ] Test final : cloner le repo à neuf et suivre le README
 

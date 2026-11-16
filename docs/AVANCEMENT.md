@@ -1,7 +1,16 @@
 # Avancement du projet et passation
 
-> Dernière mise à jour : 8 novembre 2026, par Saer.
+> Dernière mise à jour : 8 novembre 2026, par Saer. Point d'étape ajouté le 16 novembre par Ibrahima (ci-dessous).
 > Rendu : **mercredi 18 novembre 2026, 23:59**.
+
+## Point au 16 novembre (Ibrahima)
+
+Les étapes 3 et 4 sont faites et tournent sur Azure. Le détail des tâches est dans [`TODO.md`](../TODO.md).
+
+- **Ingestion ADF :** pipeline `pl_ingest_velib` (ForEach sur les 2 flux → `LookupFeed` → `IfFeedIsValid` → `CopyFeedToBronze`, sinon `FailInvalidFeed` ; `FailIngestion` si l'ingestion échoue). Déclencheur `tr_every_15min` publié et actif. Les JSON sont commités à la racine du repo (root folder `/`, choix final).
+- **Traitement Synapse :** notebook `nb_velib_processing`, qui charge [`transform.py`](../src/data_platform_project/transform.py) depuis `synapse/libs/` sur le lac. Silver en Delta incrémental (`MERGE`), 4 tables gold, vues SQL serverless dans la base `velib`.
+- **Reste :** publier l'activité `RunProcessingNotebook` (déjà sur `main`), l'alerte mail, Power BI, le bonus Fabric, les slides.
+- **Attention :** l'historique de `main` a été réécrit le 16 nov (3 commits ADF, contenu identique). Avant de pousser : `git fetch && git reset --hard origin/main` si tu n'as rien en local sur `main`.
 
 Ce document résume tout ce qui a été fait, ce qui est déjà en place sur Azure, et ce qu'il reste à faire jusqu'au rendu.
 

@@ -14,7 +14,7 @@ flowchart LR
         direction LR
 
         subgraph ingest["Ingestion"]
-            adf["Azure Data Factory<br/>pl_ingest_velib<br/>trigger toutes les 5 min<br/>ForEach + Copy · retry 3×"]
+            adf["Azure Data Factory<br/>pl_ingest_velib<br/>trigger toutes les 15 min (5 min en démo)<br/>ForEach · Lookup · Copy · retry 3×"]
             check{"Réponse<br/>valide ?"}
             alert["❌ Fail + alerte mail"]
         end
@@ -53,9 +53,9 @@ flowchart LR
     tf -. "déploie" .-> azure
 ```
 
-- **Ingestion :** ADF interroge l'API Vélib' toutes les 5 min, valide la réponse et écrit le JSON brut dans `bronze`.
-- **Traitement :** les notebooks PySpark de Synapse nettoient les données (`silver`) puis calculent les KPI (`gold`), de façon incrémentale.
-- **Exposition :** des vues SQL serverless publient la couche `gold`, lue par Power BI en DirectQuery.
+- **Ingestion :** ADF interroge l'API Vélib' toutes les 15 min (5 min pendant la démo), vérifie que la réponse contient des stations et écrit le JSON brut dans `bronze`. Il lance ensuite le notebook de traitement.
+- **Traitement :** le notebook PySpark `nb_velib_processing` nettoie les nouveaux instantanés (`silver`, Delta, `MERGE` sans doublons) puis recalcule les KPI (`gold`). Le code vient de [`transform.py`](src/data_platform_project/transform.py), testé en local.
+- **Exposition :** des vues SQL serverless (base `velib`) publient les 4 tables `gold`, lues par Power BI en DirectQuery.
 - **Sécurité :** aucune clé ni mot de passe ; ADF et Synapse accèdent au Data Lake et au Key Vault par identité managée.
 - **Infrastructure :** toutes les ressources Azure sont déployées par Terraform ([infra/](infra/)).
 
@@ -87,7 +87,27 @@ Les tests de `transform.py` lancent un Spark local : ils demandent **Java 17 ou 
 
 ## Déploiement
 
-_À compléter (Terraform, ADF, Synapse, Power BI)._
+1. **Infrastructure :** `terraform apply` dans [infra/](infra/) (voir [infra/README.md](infra/README.md)).
+2. **ADF :** l'intégration Git lit `main` (root folder `/`). Dans ADF Studio : *Validate*, *Debug*, puis *Publish* pour activer le déclencheur `tr_every_15min`.
+3. **Code de traitement :** copier `transform.py` sur le lac, où le notebook le charge :
+   ```bash
+   az storage fs file upload -f synapse -s src/data_platform_project/transform.py \
+     -p libs/transform.py --account-name stvelibmwzyy4 --auth-mode login --overwrite
+   ```
+4. **Notebook :** importer [synapse/notebooks/nb_velib_processing.ipynb](synapse/notebooks/nb_velib_processing.ipynb) dans Synapse (pool `sparkvelib`).
+5. **Vues SQL :** dans Synapse Studio (pool *Built-in*), exécuter [01_create_database.sql](synapse/sql/01_create_database.sql) sur `master`, puis [02_create_gold_views.sql](synapse/sql/02_create_gold_views.sql).
+6. **Power BI :** *Azure Synapse Analytics SQL*, serveur `synw-velib-mwzyy4-ondemand.sql.azuresynapse.net`, base `velib`, mode DirectQuery, compte Entra ID.
+
+### Données produites
+
+| Couche | Emplacement | Contenu |
+|---|---|---|
+| bronze | `bronze/velib/<flux>/yyyy/MM/dd/HH/mm.json` | JSON brut de l'API, un fichier par flux et par run |
+| silver | `silver/velib/station_status` (Delta) | Une ligne par station et instantané, enrichie (nom, GPS, capacité, zone, états) |
+| gold | `gold/velib/network_snapshot` | KPI du réseau par instantané |
+| gold | `gold/velib/zone_snapshot` | KPI par arrondissement ou commune |
+| gold | `gold/velib/station_timeseries` | Historique par station, moyenne glissante 1 h, anomalies |
+| gold | `gold/velib/station_latest` | Dernier état de chaque station (carte) |
 
 ## Documentation projet
 
