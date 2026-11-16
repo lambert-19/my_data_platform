@@ -1,0 +1,26 @@
+{
+	"name": "ds_velib_feed",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_http_velib",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"feed": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "HttpServerLocation",
+				"relativeUrl": {
+					"value": "@{dataset().feed}.json",
+					"type": "Expression"
+				}
+			}
+		},
+		"schema": {}
+	}
+}

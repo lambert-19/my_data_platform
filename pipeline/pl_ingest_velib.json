@@ -1,0 +1,97 @@
+{
+	"name": "pl_ingest_velib",
+	"properties": {
+		"description": "Copies the Vélib' GBFS feeds to bronze/velib/<feed>/yyyy/MM/dd/HH/mm.json (same layout as velib.bronze_path).",
+		"activities": [
+			{
+				"name": "ForEachFeed",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.feeds",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "CopyFeedToBronze",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.00:05:00",
+								"retry": 3,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "JsonSource",
+									"storeSettings": {
+										"type": "HttpReadSettings",
+										"requestMethod": "GET"
+									},
+									"formatSettings": {
+										"type": "JsonReadSettings"
+									}
+								},
+								"sink": {
+									"type": "JsonSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "JsonWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"dataIntegrationUnits": 2
+							},
+							"inputs": [
+								{
+									"referenceName": "ds_velib_feed",
+									"type": "DatasetReference",
+									"parameters": {
+										"feed": {
+											"value": "@item()",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "ds_bronze_json",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderPath": {
+											"value": "@concat('velib/', item(), '/', formatDateTime(pipeline().TriggerTime, 'yyyy/MM/dd/HH'))",
+											"type": "Expression"
+										},
+										"fileName": {
+											"value": "@concat(formatDateTime(pipeline().TriggerTime, 'mm'), '.json')",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"feeds": {
+				"type": "array",
+				"defaultValue": [
+					"station_status",
+					"station_information"
+				]
+			}
+		},
+		"annotations": []
+	}
+}
