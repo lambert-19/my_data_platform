@@ -15,6 +15,10 @@
 			"type": "string",
 			"defaultValue": "https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/"
 		},
+		"ls_keyvault_velib_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-velib-mwzyy4.vault.azure.net/"
+		},
 		"ls_synapse_velib_properties_typeProperties_endpoint": {
 			"type": "string",
 			"defaultValue": "https://synw-velib-mwzyy4.dev.azuresynapse.net"
@@ -51,6 +55,9 @@
 					},
 					"ls_http_velib_properties_typeProperties_url": {
 						"value": "[parameters('ls_http_velib_properties_typeProperties_url')]"
+					},
+					"ls_keyvault_velib_properties_typeProperties_baseUrl": {
+						"value": "[parameters('ls_keyvault_velib_properties_typeProperties_baseUrl')]"
 					},
 					"ls_synapse_velib_properties_typeProperties_endpoint": {
 						"value": "[parameters('ls_synapse_velib_properties_typeProperties_endpoint')]"
