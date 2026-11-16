@@ -3,14 +3,13 @@
 	"properties": {
 		"description": "Every 15 min during development; switch to 5 min for the demo.",
 		"annotations": [],
-		"runtimeState": "Started",
+		"runtimeState": "Stopped",
 		"pipelines": [
 			{
 				"pipelineReference": {
 					"referenceName": "pl_ingest_velib",
 					"type": "PipelineReference"
-				},
-				"parameters": {}
+				}
 			}
 		],
 		"type": "ScheduleTrigger",
