@@ -27,6 +27,11 @@ dev = [
     "ruff>=0.17.1",
 ]
 
+[tool.ruff]
+# Same reason as pyright below; ruff's upgrade rules would also suggest datetime.UTC,
+# which does not exist on the pool's Python 3.10.
+extend-exclude = ["synapse/notebooks"]
+
 [tool.pyright]
 # Synapse notebooks run on the Spark pool, where spark, sc, display, delta and the
 # transform module (loaded with sc.addPyFile) exist; they cannot be resolved locally.

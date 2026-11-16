@@ -11,11 +11,13 @@ Deploys the whole Azure platform in `francecentral`:
 | Synapse workspace | `synw-velib-<suffix>` | Entra ID only, serverless SQL |
 | Spark pool | `sparkvelib` | 3 × Small nodes, auto-pause 15 min |
 | Budget | `budget-velib` | Email alerts at 50 / 80 / 100 % |
+| Action group + metric alert | `ag-velib-alerts`, `alert-adf-failed-runs` | Email when an ADF pipeline run fails |
 
 Access (all through Entra ID, no keys or SQL passwords):
 
 - **Team members** (`collaborators` + whoever runs `apply`): Contributor on the resource group, Storage Blob Data Contributor on the lake, Key Vault Administrator, Synapse Administrator.
 - **ADF and Synapse managed identities**: Storage Blob Data Contributor on the lake, Key Vault Secrets User.
+- **ADF managed identity**: Synapse Administrator on the workspace, to run the processing notebook.
 
 The Terraform state is stored remotely in `rg-velib-tfstate` (created by `bootstrap.sh`).
 
@@ -32,6 +34,10 @@ terraform plan
 terraform apply                                 # ~10 min (Synapse is the slowest)
 terraform output                                # names and URLs to share with the team
 ```
+
+The alert and ADF's Synapse role were first created by hand (16 Nov 2026). [`imports.tf`](imports.tf) adopts them into the state on the next `apply`; delete that file afterwards.
+
+CI (`.github/workflows/ci.yml`) runs `terraform fmt -check` and `terraform validate` on every push, without a backend or Azure credentials.
 
 ## Destroy (after the evaluation)
 

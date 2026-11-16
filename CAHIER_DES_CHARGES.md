@@ -185,10 +185,9 @@ Règles : branches par fonctionnalité, pull requests, commits explicites et ré
 
 | Membre | Responsabilité principale |
 |---|---|
-| _à compléter_ | Ingestion (ADF) |
-| _à compléter_ | Traitement (Synapse / Python) |
-| _à compléter_ | Visualisation (Power BI) |
-| _à compléter_ | Infrastructure (Terraform) & documentation |
+| Saer Diene | Structure du repo, source de données et client Python (`velib.py`), infrastructure Terraform, documentation de passation |
+| Ibrahima Ndaw | Ingestion (ADF), traitement (Synapse / Python, `transform.py`), vues SQL serverless, visualisation (Power BI) |
+| Ensemble | Slides, vidéo de secours, répétitions, préparation du Q&A, rendu |
 
 ## 12. Critères d'acceptation (alignés sur le barème)
 

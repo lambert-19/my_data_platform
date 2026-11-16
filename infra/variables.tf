@@ -38,6 +38,12 @@ variable "budget_amount" {
   default     = 50
 }
 
+variable "budget_start_date" {
+  description = "First day of the budget period (RFC 3339, first day of a month). A fixed value keeps `terraform validate` working offline, unlike plantimestamp()."
+  type        = string
+  default     = "2026-11-01T00:00:00Z"
+}
+
 variable "budget_contact_emails" {
   description = "Emails that receive budget alerts."
   type        = list(string)
@@ -51,4 +57,10 @@ variable "tags" {
     project = "my-data-platform"
     module  = "5CLOU"
   }
+}
+
+variable "alert_emails" {
+  description = "Emails notified when the ingestion pipeline fails."
+  type        = list(string)
+  default     = []
 }
