@@ -6,7 +6,7 @@
 
 ---
 
-## 📊 État au 16 novembre 2026 (soir) : ~55 %
+## 📊 État au 16 novembre 2026 (soir) : ~60 %
 
 | Partie | Points | État |
 |---|---|---|
@@ -14,16 +14,16 @@
 | Accès Azure d'Ibrahima | – | ✅ vérifié (portail + Azure CLI) |
 | Terraform (bonus) | 2 | 🟡 infra Azure déployée, reste la partie Fabric / Power BI |
 | Qualité du code & repo | 2 | 🟡 PR #1 à #5, tests, docs ; reste les captures |
-| **Ingestion ADF** | **6** | 🟢 pipeline validé + déclencheur actif (15 min) ; reste à publier l'appel du notebook et l'alerte mail |
-| **Traitement Synapse** | **6** | 🟢 notebook bronze → silver → gold testé sur Azure + vues SQL serverless |
+| **Ingestion ADF** | **6** | ✅ pipeline publié : ingestion + validation + notebook Synapse, alerte mail ; latence de bout en bout ~3 à 5 min |
+| **Traitement Synapse** | **6** | ✅ notebook bronze → silver → gold lancé par ADF à chaque run + vues SQL serverless |
 | **Power BI** | **4** | 🔴 à faire |
 | Slides, oral, Q&A | 10 | 🔴 à faire (ensemble) |
 
 **Premiers résultats (16 nov, 18h19 UTC) :** 1 525 stations, 17 673 vélos (11 035 mécaniques, 6 638 électriques), 35 % d'occupation ; centre de Paris (1er–4e) à 70–74 %, Est et Nord (14e, 18e, 19e, 20e) sous 20 %.
 
 **Priorités d'ici au rendu :**
-1. **16 nov (soir) :** Debug + Publish du pipeline avec le notebook (ADF Studio)
-2. **17 nov :** dashboard Power BI + alerte mail ADF + slides + vidéo de secours
+1. **17 nov (matin) :** relancer le déclencheur, slides, captures
+2. **17 nov (après-midi) :** dashboard Power BI (garder au moins une demi-journée) + vidéo de secours
 3. **18 nov :** répétitions, zip, rendu avant 23:59
 
 ---
@@ -78,30 +78,31 @@
 - [ ] Combiner les deux providers : `azurerm` (Storage, Key Vault, ADF, Synapse) + `fabric` (workspace / éléments Power BI)
 - [ ] (Optionnel) GitHub Actions : `terraform fmt` / `validate` / `plan`
 
-## Phase 2 – Ingestion avec Azure Data Factory (6 pts) 🟢
+## Phase 2 – Ingestion avec Azure Data Factory (6 pts) ✅
 
 > Les ressources ADF sont commitées sur `main` (intégration Git) : [`pipeline/pl_ingest_velib.json`](pipeline/pl_ingest_velib.json), `dataset/`, `linkedService/`, `trigger/`.
 
 - [x] Activer l'intégration Git d'ADF (repo `lambert-19/my_data_platform`, branche `main`, root folder `/`, publication sur `adf_publish`)
 - [x] Linked service `ls_http_velib` : HTTP Vélib' (anonyme)
 - [x] Linked service `ls_adls_velib` : ADLS Gen2 (identité managée)
-- [ ] Linked service Key Vault (identité managée, exigé par le cahier des charges)
+- [x] Linked service `ls_keyvault_velib` : Key Vault (identité managée, publié, prêt pour de futurs secrets)
 - [x] Datasets `ds_velib_feed` (HTTP JSON, paramètre `feed`) et `ds_bronze_json` (ADLS JSON, paramètres `folderPath` / `fileName`)
 - [x] Copy activity (ForEach sur `station_status` et `station_information`) → JSON brut dans `bronze/velib/<flux>/yyyy/MM/dd/HH/mm.json` (testé : fichiers identiques à l'API)
 - [x] Paramétrer le pipeline (paramètre `feeds`, chemin horodaté sur `TriggerTime`, 2 DIU)
 - [x] Trigger `tr_every_15min` publié et actif depuis le 16 nov 19h00 UTC (runs toutes les 15 min en succès)
-- [ ] Passer le trigger à 5 min pour la démo, et l'arrêter la nuit (*Manage* → *Triggers* → *Stop* → *Publish*)
+- [ ] Arrêter le trigger la nuit et le relancer le matin (*Manage* → *Triggers* → *Stop* / *Start* → **Publish**)
+- [ ] Passer le trigger à 5 min pour la démo
 - [x] Gestion des erreurs :
   - [x] Retry policy + timeout sur les activités (3 × 30 s, timeout 5 min)
   - [x] Validation de la réponse : `LookupFeed` + `IfFeedIsValid` (au moins une station), sinon `FailInvalidFeed` (`INVALID_PAYLOAD`)
   - [x] Chemin « on failure » : `FailIngestion` (`INGESTION_FAILED`, message d'erreur explicite)
-  - [ ] Alerte mail : *Monitor* → *Alerts & metrics* → *Failed pipeline runs* > 0
-- [x] Activité `RunProcessingNotebook` après l'ingestion (linked service `ls_synapse_velib`, identité d'ADF déjà *Synapse Administrator*)
-- [ ] **Debug + Publish** du pipeline avec `RunProcessingNotebook` (la version publiée n'a encore que l'ingestion)
+  - [x] Alerte mail `alert-adf-failed-runs` (*Failed pipeline runs* > 0, vérifiée toutes les 5 min) → groupe `ag-velib-alerts` (Ibrahima + Saer). Créée en Azure CLI, pas encore dans Terraform
+- [x] Activité `RunProcessingNotebook` après l'ingestion (linked service `ls_synapse_velib`, identité d'ADF *Synapse Administrator* sur le workspace)
+- [x] Pipeline complet publié : runs automatiques de 21h30 et 21h45 UTC en succès (3 à 5 min, démarrage de Spark compris)
 - [ ] Captures d'exécutions réussies (*Monitor*) et des fichiers dans `bronze` pour les slides
 - [ ] (Optionnel) Event Hubs + Spark Structured Streaming pour un vrai temps réel
 
-## Phase 3 – Traitement temps réel avec Synapse & Python (6 pts) 🟢
+## Phase 3 – Traitement temps réel avec Synapse & Python (6 pts) ✅
 
 > Notebook : [`synapse/notebooks/nb_velib_processing.ipynb`](synapse/notebooks/nb_velib_processing.ipynb) · vues : [`synapse/sql/`](synapse/sql/) (PR #5).
 
@@ -117,7 +118,7 @@
 - [x] Traitement incrémental : watermark sur `ingested_at` + `MERGE` Delta (rejouable sans doublons)
 - [x] Vues SQL serverless sur gold dans la base `velib` (testées : 2 instantanés lisibles)
 - [x] Logs : lignes, instantanés, latence, durée (run manuel : 51 s)
-- [ ] Mesurer la latence de bout en bout une fois le notebook lancé par ADF (cible ≤ 20 min, ENF1)
+- [x] Latence de bout en bout mesurée : ~3 à 5 min entre l'appel API et gold (cible ≤ 20 min, ENF1)
 
 ## Phase 4 – Visualisation avec Power BI (4 pts) 🔴
 
