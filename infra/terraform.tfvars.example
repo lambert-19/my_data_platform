@@ -7,3 +7,5 @@ collaborators = ["prenom.nom@supinfo.com"]
 
 budget_amount         = 50
 budget_contact_emails = ["prenom.nom@supinfo.com"]
+
+alert_emails = ["prenom.nom@supinfo.com"]

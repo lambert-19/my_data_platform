@@ -7,7 +7,7 @@ resource "azurerm_consumption_budget_resource_group" "main" {
   time_grain        = "Monthly"
 
   time_period {
-    start_date = formatdate("YYYY-MM-01'T'00:00:00Z", plantimestamp())
+    start_date = var.budget_start_date
   }
 
   dynamic "notification" {

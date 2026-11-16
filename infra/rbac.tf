@@ -67,3 +67,14 @@ resource "azurerm_role_assignment" "kv_synapse" {
   principal_id         = azurerm_synapse_workspace.main.identity[0].principal_id
   principal_type       = "ServicePrincipal"
 }
+
+# ADF launches the Synapse processing notebook (activity RunProcessingNotebook).
+# Synapse has its own RBAC, separate from Azure RBAC.
+resource "azurerm_synapse_role_assignment" "adf" {
+  synapse_workspace_id = azurerm_synapse_workspace.main.id
+  role_name            = "Synapse Administrator"
+  principal_id         = azurerm_data_factory.main.identity[0].principal_id
+  principal_type       = "ServicePrincipal"
+
+  depends_on = [azurerm_synapse_firewall_rule.clients]
+}
