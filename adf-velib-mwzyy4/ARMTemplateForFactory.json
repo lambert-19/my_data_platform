@@ -410,7 +410,7 @@
 			"properties": {
 				"description": "Every 15 min during development; switch to 5 min for the demo.",
 				"annotations": [],
-				"runtimeState": "Stopped",
+				"runtimeState": "Started",
 				"pipelines": [
 					{
 						"pipelineReference": {
