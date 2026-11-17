@@ -35,3 +35,6 @@ crash.log
 # Terraform saved plans
 tfplan
 *.tfplan
+
+# Office lock files
+~$*

@@ -34,7 +34,8 @@ flowchart LR
         monitor["🔔 Azure Monitor<br/>alerte run en échec<br/>→ mail à l'équipe"]
     end
 
-    pbi["📊 Power BI<br/>DirectQuery<br/>actualisation auto"]
+    fabric["🟩 Microsoft Fabric<br/>Lakehouse lh_velib<br/>raccourcis vers gold"]
+    pbi["📊 Power BI<br/>Direct Lake<br/>actualisation auto"]
     tf["🛠️ Terraform · azurerm"]
     ci["✅ GitHub Actions<br/>lint · tests · terraform validate"]
 
@@ -47,7 +48,8 @@ flowchart LR
     spark -- "1 · nettoyage, jointure,<br/>MERGE sans doublons" --> silver
     spark -- "2 · KPI, anomalies" --> gold
     gold --> sql
-    sql --> pbi
+    gold -- "raccourcis OneLake" --> fabric
+    fabric --> pbi
 
     adf -. "runs en échec" .-> monitor
     kv -. "identités managées" .- adf
@@ -58,7 +60,7 @@ flowchart LR
 
 - **Ingestion :** ADF interroge l'API Vélib' toutes les 15 min (5 min pendant la démo), vérifie que la réponse contient des stations et écrit le JSON brut dans `bronze`. Il lance ensuite le notebook de traitement.
 - **Traitement :** le notebook PySpark `nb_velib_processing` nettoie les nouveaux instantanés (`silver`, Delta, `MERGE` sans doublons) puis recalcule les KPI (`gold`). Le code vient de [`transform.py`](src/data_platform_project/transform.py), testé en local.
-- **Exposition :** des vues SQL serverless (base `velib`) publient les 4 tables `gold`, lues par Power BI en DirectQuery.
+- **Exposition :** le rapport Power BI tourne dans Microsoft Fabric. Un Lakehouse lit les 4 tables `gold` par raccourcis OneLake (aucune copie), et le modèle sémantique est en mode Direct Lake. Des vues SQL serverless (base `velib`) exposent aussi `gold` pour un accès SQL ou Power BI Desktop. Voir [powerbi/](powerbi/).
 - **Sécurité :** aucune clé ni mot de passe ; ADF et Synapse accèdent au Data Lake et au Key Vault par identité managée.
 - **Supervision :** une alerte Azure Monitor envoie un mail à l'équipe dès qu'un run du pipeline échoue.
 - **Infrastructure :** toutes les ressources Azure sont déployées par Terraform ([infra/](infra/)), vérifié à chaque push par la CI GitHub Actions.
@@ -67,13 +69,13 @@ flowchart LR
 
 | Dossier | Contenu |
 |---|---|
-| `infra/` | Terraform (azurerm + microsoft/fabric) |
+| `infra/` | Terraform (azurerm) |
 | `factory/`, `linkedService/`, `dataset/`, `pipeline/`, `trigger/` | Ressources Azure Data Factory, commitées automatiquement par l'intégration Git d'ADF (root folder `/`) |
 | `publish_config.json` | Configuration de publication ADF (branche `adf_publish`) |
 | `synapse/` | Notebooks PySpark et scripts SQL serverless |
 | `src/data_platform_project/` | Fonctions Python réutilisables |
 | `tests/` | Tests unitaires pytest |
-| `powerbi/` | Rapport `.pbix` et captures |
+| `powerbi/` | Rapport Power BI (Fabric) : export PDF, captures, mesures DAX |
 | `docs/` | Architecture, guide de déploiement, slides |
 | `.github/workflows/` | CI : lint, tests, validation Terraform |
 
@@ -103,7 +105,7 @@ Les tests de `transform.py` lancent un Spark local : ils demandent **Java 17 ou 
    ```
 4. **Notebook :** importer [synapse/notebooks/nb_velib_processing.ipynb](synapse/notebooks/nb_velib_processing.ipynb) dans Synapse (pool `sparkvelib`).
 5. **Vues SQL :** dans Synapse Studio (pool *Built-in*), exécuter [01_create_database.sql](synapse/sql/01_create_database.sql) sur `master`, puis [02_create_gold_views.sql](synapse/sql/02_create_gold_views.sql).
-6. **Power BI :** *Azure Synapse Analytics SQL*, serveur `synw-velib-mwzyy4-ondemand.sql.azuresynapse.net`, base `velib`, mode DirectQuery, compte Entra ID.
+6. **Power BI (Fabric) :** Lakehouse avec raccourcis vers `gold`, modèle sémantique en Direct Lake, rapport `rpt_velib` (voir [powerbi/README.md](powerbi/README.md)). Alternative avec Power BI Desktop : *Azure Synapse Analytics SQL*, serveur `synw-velib-mwzyy4-ondemand.sql.azuresynapse.net`, base `velib`, mode DirectQuery.
 
 ### Données produites
 
