@@ -13,6 +13,13 @@ resource "azurerm_synapse_workspace" "main" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    # Azure fills in a default SQL admin login ("sqladminuser") even in Entra-only mode.
+    # The attribute forces replacement, so without this every apply would destroy the
+    # workspace with its notebooks, SQL views and Spark pool.
+    ignore_changes = [sql_administrator_login, sql_administrator_login_password]
+  }
 }
 
 # Entra ID admin of the serverless SQL endpoint (the person running Terraform).
