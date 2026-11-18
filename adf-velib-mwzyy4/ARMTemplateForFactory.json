@@ -404,7 +404,7 @@
 			"dependsOn": []
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/tr_every_15min')]",
+			"name": "[concat(parameters('factoryName'), '/tr_every_5min')]",
 			"type": "Microsoft.DataFactory/factories/triggers",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -424,7 +424,7 @@
 				"typeProperties": {
 					"recurrence": {
 						"frequency": "Minute",
-						"interval": 15,
+						"interval": 5,
 						"startTime": "2026-11-16T19:00:00Z",
 						"timeZone": "UTC"
 					}
