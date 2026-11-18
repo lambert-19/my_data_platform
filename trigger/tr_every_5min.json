@@ -1,5 +1,5 @@
 {
-	"name": "tr_every_15min",
+	"name": "tr_every_5min",
 	"properties": {
 		"description": "Every 15 min during development; switch to 5 min for the demo.",
 		"annotations": [],
