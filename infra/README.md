@@ -35,7 +35,11 @@ terraform apply                                 # ~10 min (Synapse is the slowes
 terraform output                                # names and URLs to share with the team
 ```
 
-The alert and ADF's Synapse role were first created by hand (16 Nov 2026). [`imports.tf`](imports.tf) adopts them into the state on the next `apply`; delete that file afterwards.
+The alert and ADF's Synapse role were first created by hand (16 Nov 2026), then adopted into the state by the blocks in [`imports.tf`](imports.tf) during the 17 Nov `apply`. Those blocks are now no-ops and the file can be deleted.
+
+Two `lifecycle.ignore_changes` rules avoid drift on things set outside Terraform: the ADF GitHub link (configured from ADF Studio) and the default SQL admin login Azure adds to the Synapse workspace (it would otherwise force a replacement).
+
+Not managed here: the Microsoft Fabric workspace, Lakehouse and report (created in the Fabric UI on a trial capacity, see [powerbi/README.md](../powerbi/README.md)).
 
 CI (`.github/workflows/ci.yml`) runs `terraform fmt -check` and `terraform validate` on every push, without a backend or Azure credentials.
 

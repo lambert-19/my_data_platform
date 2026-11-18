@@ -1,7 +1,19 @@
 # Avancement du projet et passation
 
-> Dernière mise à jour : 8 novembre 2026, par Saer. Point d'étape ajouté le 16 novembre par Ibrahima (ci-dessous).
+> Dernière mise à jour : 8 novembre 2026, par Saer. Points d'étape ajoutés les 16 et 18 novembre (ci-dessous).
 > Rendu : **mercredi 18 novembre 2026, 23:59**.
+
+## Point au 18 novembre (jour du rendu)
+
+Toutes les briques techniques sont faites. Il reste la démo et le rendu.
+
+- **Power BI (Saer, PR #10) :** rapport `rpt_velib` dans Fabric (workspace `velib-platform`, capacité d'essai) : Lakehouse `lh_velib` avec 4 raccourcis vers gold, modèle `sm_velib` en Direct Lake, 2 pages (« Réseau en direct », « Analyses »). Détail dans [`powerbi/README.md`](../powerbi/README.md).
+- **Vues d'analyse (Saer, PR #9) :** `zone_flow`, `zone_indicators`, `paris_vs_suburbs`, `station_issues` ([`03_create_analysis_views.sql`](../synapse/sql/03_create_analysis_views.sql)).
+- **Terraform (Saer, PR #8) :** `apply` du 17 nov fait, drift corrigé (lien Git d'ADF et login SQL de Synapse ignorés). L'alerte et le rôle Synapse d'ADF sont maintenant dans le state : `infra/imports.tf` peut être supprimé.
+- **Slides et captures (Saer, PR #10 et #11) :** [`slides_velib.pptx`](slides_velib.pptx) (17 slides) et [`captures/`](captures/).
+- **Données :** 53 instantanés dans bronze au 18 nov midi.
+- **Avant la démo :** dans ADF Studio, passer `tr_every_15min` à 5 min, le mettre sur *Started* et faire **Publish** (sur Azure il est actuellement *Stopped*, même si `main` indique *Started*). Lancer un run 10 min avant pour que le Spark pool soit chaud.
+- **Après la note :** `terraform destroy`, supprimer `rg-velib-tfstate` et le workspace Fabric.
 
 ## Point au 16 novembre (Ibrahima)
 

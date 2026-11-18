@@ -81,6 +81,8 @@ Le client Python de la source est dans [`src/data_platform_project/velib.py`](sr
 Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · GitHub
 ```
 
+> Architecture **cible** définie au lancement du projet. L'architecture réalisée (Power BI dans Microsoft Fabric en Direct Lake, alerte Azure Monitor, CI) est décrite dans le [README](README.md#architecture).
+
 ### Services Azure utilisés
 
 | Service | Rôle |
@@ -111,7 +113,7 @@ Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · G
 - EF2.5 Exposition de la couche gold via des vues SQL serverless.
 
 ### EF3 – Visualisation (Power BI)
-- EF3.1 Connexion à Synapse en DirectQuery.
+- EF3.1 Connexion aux données gold sans copie, toujours à jour. Réalisé avec Microsoft Fabric (raccourcis OneLake + modèle Direct Lake) ; les vues SQL serverless de Synapse permettent aussi une connexion DirectQuery depuis Power BI Desktop.
 - EF3.2 Actualisation automatique des pages pendant la démo.
 - EF3.3 Le dashboard contient au minimum : cartes KPI, évolution temporelle de la disponibilité, carte des stations, filtres interactifs (zone, station, type de vélo), mise en évidence des stations en anomalie.
 - EF3.4 Les insights clés sont explicitement mis en avant.
@@ -120,7 +122,7 @@ Transverse : Key Vault (secrets) · Identités managées · Terraform (IaC) · G
 - EF4.1 L'ensemble des ressources Azure (Storage, Key Vault, Data Factory, Synapse et Spark pool) est déployé via `terraform apply` avec le provider `azurerm`.
 - EF4.2 Le state Terraform est stocké à distance.
 - EF4.3 Le code est paramétré (variables, outputs) et ne contient aucun secret.
-- EF4.4 La partie Power BI est déployée avec le provider Microsoft Fabric (`microsoft/fabric`) : workspace Fabric rattaché à une capacité. Si aucune capacité n'est disponible, la limite est documentée.
+- EF4.4 La partie Power BI est déployée avec le provider Microsoft Fabric (`microsoft/fabric`) : workspace Fabric rattaché à une capacité. Si aucune capacité n'est disponible, la limite est documentée. **Réalisé :** le workspace, le Lakehouse et le rapport ont été créés dans l'interface Fabric (capacité d'essai) ; leur passage en Terraform est listé dans les pistes d'amélioration.
 
 ### EF5 – Alternative locale (plan de repli)
 Si les crédits ou l'accès Azure sont indisponibles, le sujet autorise une version locale reprenant les mêmes concepts :
@@ -185,8 +187,8 @@ Règles : branches par fonctionnalité, pull requests, commits explicites et ré
 
 | Membre | Responsabilité principale |
 |---|---|
-| Saer Diene | Structure du repo, source de données et client Python (`velib.py`), infrastructure Terraform, documentation de passation |
-| Ibrahima Ndaw | Ingestion (ADF), traitement (Synapse / Python, `transform.py`), vues SQL serverless, visualisation (Power BI) |
+| Saer Diene | Structure du repo, source de données et client Python (`velib.py`), infrastructure Terraform, vues SQL d'analyse, rapport Power BI dans Fabric, slides et captures |
+| Ibrahima Ndaw | Ingestion (ADF), traitement (Synapse / Python, `transform.py`, notebook), vues SQL gold, alerte de supervision, CI GitHub Actions |
 | Ensemble | Slides, vidéo de secours, répétitions, préparation du Q&A, rendu |
 
 ## 12. Critères d'acceptation (alignés sur le barème)

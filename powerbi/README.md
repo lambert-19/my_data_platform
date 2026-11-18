@@ -10,14 +10,21 @@ Le rapport `rpt_velib` est publié dans l'espace de travail Fabric **velib-platf
 
 ## Architecture
 
-```
-ADLS Gen2 (gold/velib/*, Delta)  ──raccourcis OneLake──►  Lakehouse lh_velib (Tables > dbo)
-                                                              │
-                                                              ▼
-                                              Modèle sémantique sm_velib (Direct Lake)
-                                                              │
-                                                              ▼
-                                                     Rapport rpt_velib
+```mermaid
+flowchart LR
+    gold[("ADLS Gen2<br/>gold/velib/*<br/>Delta")]
+    nb["Notebook Synapse<br/>nb_velib_processing"]
+
+    subgraph fabric["Microsoft Fabric · workspace velib-platform"]
+        lh["Lakehouse lh_velib<br/>Tables › dbo<br/>4 raccourcis"]
+        sm["Modèle sémantique sm_velib<br/>Direct Lake · mesures DAX"]
+        rpt["Rapport rpt_velib<br/>Réseau en direct · Analyses<br/>actualisation auto"]
+    end
+
+    nb -- "nouvelle version Delta<br/>à chaque run ADF" --> gold
+    gold -- "raccourcis OneLake<br/>(aucune copie, Entra ID)" --> lh
+    lh --> sm
+    sm --> rpt
 ```
 
 - **Aucune copie de données.** Le Lakehouse `lh_velib` contient 4 *raccourcis* vers les tables Delta `gold/velib/{network_snapshot, zone_snapshot, station_timeseries, station_latest}` du Data Lake. L'accès se fait avec le compte Entra ID de l'utilisateur, qui a le rôle *Storage Blob Data Contributor* sur le lac. Aucune clé n'est utilisée.
