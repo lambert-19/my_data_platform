@@ -129,7 +129,5 @@ Vues d'analyse SQL serverless (base `velib`) : `zone_flow` (vélos reçus ou env
 ## Documentation projet
 
 - [Cahier des charges](CAHIER_DES_CHARGES.md)
-- [TODO](TODO.md)
-- [Avancement et passation](docs/AVANCEMENT.md)
 - [Rapport Power BI (Fabric)](powerbi/README.md)
 - [Infrastructure Terraform](infra/README.md)
